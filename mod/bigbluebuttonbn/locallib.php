@@ -1054,56 +1054,52 @@ function bigbluebuttonbn_get_duration($closingtime) {
  */
 function bigbluebuttonbn_get_presentation_array($context, $presentation, $id = null) {
     global $CFG;
-    if (empty($presentation)) {
-        if ($CFG->bigbluebuttonbn_preuploadpresentation_enabled) {
-            // Item has not presentation but presentation is enabled..
-            // Check if exist some file by default in general mod setting ("presentationdefault").
-            $fs = get_file_storage();
-            $files = $fs->get_area_files(
-                context_system::instance()->id,
-                'mod_bigbluebuttonbn',
-                'presentationdefault',
-                0,
-                "filename",
-                false
-            );
+    if (empty($presentation) || !$CFG->bigbluebuttonbn_preuploadpresentation_editable) {
+        // Item has no presentation but the default is there.
+        // Check if exist some file by default in general mod setting ("presentationdefault").
+        $fs = get_file_storage();
+        $files = $fs->get_area_files(
+            context_system::instance()->id,
+            'mod_bigbluebuttonbn',
+            'presentationdefault',
+            0,
+            "filename",
+            false
+        );
 
-            if (count($files) == 0) {
-                // Not exist file by default in "presentationbydefault" setting.
-                return array('url' => null, 'name' => null, 'icon' => null, 'mimetype_description' => null);
-            }
-
-            // Exists file in general setting to use as default for presentation. Cache image for temp public access.
-            $file = reset($files);
-            unset($files);
-            $pnoncevalue = null;
-            if (!is_null($id)) {
-                // Create the nonce component for granting a temporary public access.
-                $cache = cache::make_from_params(
-                    cache_store::MODE_APPLICATION,
-                    'mod_bigbluebuttonbn',
-                    'presentationdefault_cache'
-                );
-                $pnoncekey = sha1(context_system::instance()->id);
-                /* The item id was adapted for granting public access to the presentation once in order
-                 * to allow BigBlueButton to gather the file. */
-                $pnoncevalue = bigbluebuttonbn_generate_nonce();
-                $cache->set($pnoncekey, array('value' => $pnoncevalue, 'counter' => 0));
-            }
-
-            $url = moodle_url::make_pluginfile_url(
-                $file->get_contextid(),
-                $file->get_component(),
-                $file->get_filearea(),
-                $pnoncevalue,
-                $file->get_filepath(),
-                $file->get_filename()
-            );
-            return (array('name' => $file->get_filename(), 'icon' => file_file_icon($file, 24),
-                'url' => $url->out(false), 'mimetype_description' => get_mimetype_description($file)));
+        if (count($files) == 0) {
+            // Not exist file by default in "presentationbydefault" setting.
+            return array('url' => null, 'name' => null, 'icon' => null, 'mimetype_description' => null);
         }
 
-        return array('url' => null, 'name' => null, 'icon' => null, 'mimetype_description' => null);
+        // Exists file in general setting to use as default for presentation. Cache image for temp public access.
+        $file = reset($files);
+        unset($files);
+        $pnoncevalue = null;
+        if (!is_null($id)) {
+            // Create the nonce component for granting a temporary public access.
+            $cache = cache::make_from_params(
+                cache_store::MODE_APPLICATION,
+                'mod_bigbluebuttonbn',
+                'presentationdefault_cache'
+            );
+            $pnoncekey = sha1(context_system::instance()->id);
+            /* The item id was adapted for granting public access to the presentation once in order
+             * to allow BigBlueButton to gather the file. */
+            $pnoncevalue = bigbluebuttonbn_generate_nonce();
+            $cache->set($pnoncekey, array('value' => $pnoncevalue, 'counter' => 0));
+        }
+
+        $url = moodle_url::make_pluginfile_url(
+            $file->get_contextid(),
+            $file->get_component(),
+            $file->get_filearea(),
+            $pnoncevalue,
+            $file->get_filepath(),
+            $file->get_filename()
+        );
+        return (array('name' => $file->get_filename(), 'icon' => file_file_icon($file, 24),
+            'url' => $url->out(false), 'mimetype_description' => get_mimetype_description($file)));
     }
     $fs = get_file_storage();
     $files = $fs->get_area_files(
@@ -2097,7 +2093,9 @@ function bigbluebuttonbn_include_recording_table_row($bbbsession, $recording) {
  * @return void
  */
 function bigbluebuttonbn_send_notification_recording_ready($bigbluebuttonbn) {
-    \mod_bigbluebuttonbn\locallib\notifier::notify_recording_ready($bigbluebuttonbn);
+    if ((boolean) \mod_bigbluebuttonbn\locallib\config::get('recordingready_enabled')) {
+        \mod_bigbluebuttonbn\locallib\notifier::notify_recording_ready($bigbluebuttonbn);
+    }
 }
 
 /**
@@ -2205,7 +2203,7 @@ function bigbluebuttonbn_is_bn_server() {
  * @return array
  */
 function bigbluebuttonbn_import_get_courses_for_select(array $bbbsession) {
-    if ($bbbsession['administrator'] || has_capability('moodle/course:view')) {
+    if ($bbbsession['administrator'] || has_capability('moodle/course:view', $bbbsession['context'])) {
         $courses = get_courses('all', 'c.fullname ASC');
         // It includes the name of the site as a course (category 0), so remove the first one.
         unset($courses['1']);
@@ -2886,8 +2884,8 @@ function bigbluebuttonbn_settings_preupload(&$renderer) {
         $renderer->render_group_header('preuploadpresentation', null, $preuploaddescripion);
         if (extension_loaded('curl')) {
             $renderer->render_group_element(
-                'preuploadpresentation_enabled',
-                $renderer->render_group_element_checkbox('preuploadpresentation_enabled', 0)
+                'preuploadpresentation_editable',
+                $renderer->render_group_element_checkbox('preuploadpresentation_editable', 0)
             );
         }
     }
@@ -3276,6 +3274,10 @@ function bigbluebuttonbn_settings_default_messages(&$renderer) {
     $renderer->render_group_element(
         'welcome_default',
         $renderer->render_group_element_textarea('welcome_default', '', PARAM_RAW)
+    );
+    $renderer->render_group_element(
+        'welcome_editable',
+        $renderer->render_group_element_checkbox('welcome_editable', 1)
     );
 }
 

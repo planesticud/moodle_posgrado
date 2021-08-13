@@ -175,8 +175,8 @@ $string['config_voicebridge_editable_description'] = 'Conference voice bridge nu
 
 $string['config_preuploadpresentation'] = 'Configuration for "Pre-upload presentation" feature';
 $string['config_preuploadpresentation_description'] = 'These settings enable or disable options in the UI and also define default values for these options. The feature works only if the Moodle server is accessible to BigBlueButton..';
-$string['config_preuploadpresentation_enabled'] = 'Pre-uploading presentation enabled';
-$string['config_preuploadpresentation_enabled_description'] = 'Preupload presentation feature is enabled in the UI when the room or conference is added or updated.';
+$string['config_preuploadpresentation_editable'] = 'Pre-uploading presentation editable';
+$string['config_preuploadpresentation_editable_description'] = 'Preupload presentation feature is editable in the UI when the room or conference is added or updated.';
 
 $string['config_presentation_default'] = 'Default file for "Pre-upload presentation" feature';
 $string['config_presentation_default_description'] = 'This setting allow to select a file to use as default in all BBB instances if "Pre-upload presentation" is enabled.';
@@ -227,6 +227,9 @@ $string['config_muteonstart_editable'] = 'Mute on start can be edited';
 $string['config_muteonstart_editable_description'] = 'Mute on start by default can be edited when the instance is added or updated.';
 $string['config_welcome_default'] = 'Default welcome message';
 $string['config_welcome_default_description'] = 'Replaces the default message set up for the BigBlueButton server. The message can includes keywords  (%%CONFNAME%%, %%DIALNUM%%, %%CONFNUM%%) which will be substituted automatically, and also html tags like <b>...</b> or <i></i> ';
+$string['config_welcome_editable'] = 'Default welcome message is editable by teachers';
+$string['config_welcome_editable_description'] = 'Welcome message can be edited when the instance is added or updated';
+
 $string['config_default_messages'] = 'Default messages';
 $string['config_default_messages_description'] = 'Set message defaults for activities';
 
