@@ -31,10 +31,25 @@ require_once($CFG->dirroot . '/blocks/accessibility/lib.php');
  */
 class block_accessibility extends block_base {
 
+    /**
+     * URL of the JavaScript file.
+     */
     const JS_URL = '/blocks/accessibility/module.js';
+    /**
+     * URL of the CSS declaration file.
+     */
     const CSS_URL = '/blocks/accessibility/userstyles.php';
+    /**
+     * URL of the fontsize file.
+     */
     const FONTSIZE_URL = '/blocks/accessibility/changesize.php';
+    /**
+     * URL of the colour change file.
+     */
     const COLOUR_URL = '/blocks/accessibility/changecolour.php';
+    /**
+     * URL of the database file.
+     */
     const DB_URL = '/blocks/accessibility/database.php';
 
     /**
@@ -63,7 +78,7 @@ class block_accessibility extends block_base {
 
             // Link default/saved settings to a page.
             // Each block instance has it's own configuration form, so we need instance id.
-            $cssurl = self::CSS_URL . '?instance_id=' . $instanceid;
+            $cssurl = new moodle_url(self::CSS_URL, ["instance_id" => $instanceid]);
             $this->page->requires->css($cssurl);
         }
     }
@@ -213,7 +228,7 @@ class block_accessibility extends block_base {
         $content .= html_writer::end_tag('li');
 
         $content .= html_writer::start_tag('li', array('class' => 'access-button'));
-        $content .= html_writer::tag('a', '&nbsp', $saveattrs);
+        $content .= html_writer::tag('a', '&nbsp;', $saveattrs);
         $content .= html_writer::end_tag('li');
 
         $content .= html_writer::end_tag('ul');

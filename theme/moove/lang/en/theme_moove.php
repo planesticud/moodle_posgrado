@@ -43,10 +43,11 @@ $string['madeby'] = 'Made with';
 $string['by'] = 'by';
 $string['discipline_progress'] = 'Topic\'s progress';
 $string['access'] = 'Access';
-$string['cachedef_admininfos'] = 'Site administrator dashboard infos';
+$string['cachedef_admininfos'] = 'Site administrator dashboard infos cache definition';
+$string['cachedef_fontawesomemooveiconmapping'] = 'Theme icon font definition';
 $string['diskusage'] = 'Disk usage(moodledata)';
 $string['notcalculatedyet'] = 'Not calculated yet';
-$string['calculatediskusagetask'] = 'Taks to calculate the disk usage';
+$string['calculatediskusagetask'] = 'Task to calculate the disk usage';
 $string['totalusers'] = 'Active / Suspended users';
 $string['totalcourses'] = 'Total courses';
 $string['onlineusers'] = 'Online users(last 5 minutes)';
@@ -220,8 +221,6 @@ $string['whatsapp'] = 'Whatsapp number';
 $string['whatsappdesc'] = 'Enter your whatsapp number for contact.';
 $string['topfooterimg'] = 'Footer image';
 $string['topfooterimgdesc'] = 'Upload your custom footer image here if you want to replace the default image. Recommended size is 1500px x 400px or higher.';
-$string['disablebottomfooter'] = 'Disable bottom footer';
-$string['disablebottomfooterdesc'] = 'Disables the orange bottom footer';
 
 // Forum.
 $string['forumsettings'] = 'Forum';
@@ -237,7 +236,7 @@ $string['certificates'] = 'Certificates';
 $string['certificatestitle'] = 'My certificates';
 $string['subtitleallcertificates'] = 'Certificates from all courses';
 $string['subtitlecoursecertificates'] = 'Course certificates';
-$string['nohavecertificates'] = 'You no have certificates yet';
+$string['nohavecertificates'] = 'You have no certificates yet.';
 $string['coursesections'] = 'Course sections';
 
 // Mypublic page.

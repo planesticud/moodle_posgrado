@@ -290,6 +290,36 @@ class core_datalib_testcase extends advanced_testcase {
         $this->assertEquals($before + 1, $DB->perf_get_queries());
     }
 
+    /**
+     * Test that specifying fields when calling get_courses always returns required fields "id, category, visible"
+     */
+    public function test_get_courses_with_fields(): void {
+        $this->resetAfterTest();
+
+        $category = $this->getDataGenerator()->create_category();
+        $course = $this->getDataGenerator()->create_course(['category' => $category->id]);
+
+        // Specify "id" only.
+        $courses = get_courses($category->id, 'c.sortorder', 'c.id');
+        $this->assertCount(1, $courses);
+        $this->assertEquals((object) [
+            'id' => $course->id,
+            'category' => $course->category,
+            'visible' => $course->visible,
+        ], reset($courses));
+
+        // Specify some optional fields.
+        $courses = get_courses($category->id, 'c.sortorder', 'c.id, c.shortname, c.fullname');
+        $this->assertCount(1, $courses);
+        $this->assertEquals((object) [
+            'id' => $course->id,
+            'category' => $course->category,
+            'visible' => $course->visible,
+            'shortname' => $course->shortname,
+            'fullname' => $course->fullname,
+        ], reset($courses));
+    }
+
     public function test_increment_revision_number() {
         global $DB;
         $this->resetAfterTest();
@@ -652,5 +682,299 @@ class core_datalib_testcase extends advanced_testcase {
         } catch (moodle_exception $e) {
             $this->assertInstanceOf('coding_exception', $e);
         }
+    }
+
+    /**
+     * Test max courses in category
+     */
+    public function test_max_courses_in_category() {
+        global $CFG;
+        $this->resetAfterTest();
+
+        // Default settings.
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY, get_max_courses_in_category());
+
+        // Misc category.
+        $misc = core_course_category::get_default();
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY, $misc->sortorder);
+
+        $category1 = $this->getDataGenerator()->create_category();
+        $category2 = $this->getDataGenerator()->create_category();
+
+        // Check category sort orders.
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY, core_course_category::get($misc->id)->sortorder);
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY * 2, core_course_category::get($category1->id)->sortorder);
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY * 3, core_course_category::get($category2->id)->sortorder);
+
+        // Create courses.
+        $course1 = $this->getDataGenerator()->create_course(['category' => $category1->id]);
+        $course2 = $this->getDataGenerator()->create_course(['category' => $category2->id]);
+        $course3 = $this->getDataGenerator()->create_course(['category' => $category1->id]);
+        $course4 = $this->getDataGenerator()->create_course(['category' => $category2->id]);
+
+        // Check course sort orders.
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY * 2 + 2, get_course($course1->id)->sortorder);
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY * 3 + 2, get_course($course2->id)->sortorder);
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY * 2 + 1, get_course($course3->id)->sortorder);
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY * 3 + 1, get_course($course4->id)->sortorder);
+
+        // Increase max course in category.
+        $CFG->maxcoursesincategory = 20000;
+        $this->assertEquals(20000, get_max_courses_in_category());
+
+        // The sort order has not yet fixed, these sort orders should be the same as before.
+        // Categories.
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY, core_course_category::get($misc->id)->sortorder);
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY * 2, core_course_category::get($category1->id)->sortorder);
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY * 3, core_course_category::get($category2->id)->sortorder);
+        // Courses in category 1.
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY * 2 + 2, get_course($course1->id)->sortorder);
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY * 2 + 1, get_course($course3->id)->sortorder);
+        // Courses in category 2.
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY * 3 + 2, get_course($course2->id)->sortorder);
+        $this->assertEquals(MAX_COURSES_IN_CATEGORY * 3 + 1, get_course($course4->id)->sortorder);
+
+        // Create new category so that the sort orders are applied.
+        $category3 = $this->getDataGenerator()->create_category();
+        // Categories.
+        $this->assertEquals(20000, core_course_category::get($misc->id)->sortorder);
+        $this->assertEquals(20000 * 2, core_course_category::get($category1->id)->sortorder);
+        $this->assertEquals(20000 * 3, core_course_category::get($category2->id)->sortorder);
+        $this->assertEquals(20000 * 4, core_course_category::get($category3->id)->sortorder);
+        // Courses in category 1.
+        $this->assertEquals(20000 * 2 + 2, get_course($course1->id)->sortorder);
+        $this->assertEquals(20000 * 2 + 1, get_course($course3->id)->sortorder);
+        // Courses in category 2.
+        $this->assertEquals(20000 * 3 + 2, get_course($course2->id)->sortorder);
+        $this->assertEquals(20000 * 3 + 1, get_course($course4->id)->sortorder);
+    }
+
+    /**
+     * Test debug message for max courses in category
+     */
+    public function test_debug_max_courses_in_category() {
+        global $CFG;
+        $this->resetAfterTest();
+
+        // Set to small value so that we can check the debug message.
+        $CFG->maxcoursesincategory = 3;
+        $this->assertEquals(3, get_max_courses_in_category());
+
+        $category1 = $this->getDataGenerator()->create_category();
+
+        // There is only one course, no debug message.
+        $this->getDataGenerator()->create_course(['category' => $category1->id]);
+        $this->assertDebuggingNotCalled();
+        // There are two courses, no debug message.
+        $this->getDataGenerator()->create_course(['category' => $category1->id]);
+        $this->assertDebuggingNotCalled();
+        // There is debug message when number of courses reaches the maximum number.
+        $this->getDataGenerator()->create_course(['category' => $category1->id]);
+        $this->assertDebuggingCalled("The number of courses (category id: $category1->id) has reached max number of courses " .
+            "in a category (" . get_max_courses_in_category() . "). It will cause a sorting performance issue. " .
+            "Please set higher value for \$CFG->maxcoursesincategory in config.php. " .
+            "Please also make sure \$CFG->maxcoursesincategory * MAX_COURSE_CATEGORIES less than max integer. " .
+            "See tracker issues: MDL-25669 and MDL-69573");
+    }
+
+    /**
+     * Data provider for test_get_safe_orderby().
+     *
+     * @return array
+     */
+    public function get_safe_orderby_provider(): array {
+        $orderbymap = [
+            'courseid' => 'c.id',
+            'somecustomvalue' => 'c.startdate, c.shortname',
+            'default' => 'c.fullname',
+        ];
+        $orderbymapnodefault = [
+            'courseid' => 'c.id',
+            'somecustomvalue' => 'c.startdate, c.shortname',
+        ];
+
+        return [
+            'Valid option, no direction specified' => [
+                $orderbymap,
+                'somecustomvalue',
+                '',
+                ' ORDER BY c.startdate, c.shortname',
+            ],
+            'Valid option, valid direction specified' => [
+                $orderbymap,
+                'courseid',
+                'DESC',
+                ' ORDER BY c.id DESC',
+            ],
+            'Valid option, valid lowercase direction specified' => [
+                $orderbymap,
+                'courseid',
+                'asc',
+                ' ORDER BY c.id ASC',
+            ],
+            'Valid option, invalid direction specified' => [
+                $orderbymap,
+                'courseid',
+                'BOOP',
+                ' ORDER BY c.id',
+            ],
+            'Valid option, invalid lowercase direction specified' => [
+                $orderbymap,
+                'courseid',
+                'boop',
+                ' ORDER BY c.id',
+            ],
+            'Invalid option default fallback, with valid direction' => [
+                $orderbymap,
+                'thisdoesnotexist',
+                'ASC',
+                ' ORDER BY c.fullname ASC',
+            ],
+            'Invalid option default fallback, with invalid direction' => [
+                $orderbymap,
+                'thisdoesnotexist',
+                'BOOP',
+                ' ORDER BY c.fullname',
+            ],
+            'Invalid option without default, with valid direction' => [
+                $orderbymapnodefault,
+                'thisdoesnotexist',
+                'ASC',
+                '',
+            ],
+            'Invalid option without default, with invalid direction' => [
+                $orderbymapnodefault,
+                'thisdoesnotexist',
+                'NOPE',
+                '',
+            ],
+        ];
+    }
+
+    /**
+     * Tests the get_safe_orderby function.
+     *
+     * @dataProvider get_safe_orderby_provider
+     * @param array $orderbymap The ORDER BY parameter mapping array.
+     * @param string $orderbykey The string key being provided, to check against the map.
+     * @param string $direction The optional direction to order by.
+     * @param string $expected The expected string output of the method.
+     */
+    public function test_get_safe_orderby(array $orderbymap, string $orderbykey, string $direction, string $expected): void {
+        $actual = get_safe_orderby($orderbymap, $orderbykey, $direction);
+        $this->assertEquals($expected, $actual);
+    }
+
+    /**
+     * Data provider for test_get_safe_orderby_multiple().
+     *
+     * @return array
+     */
+    public function get_safe_orderby_multiple_provider(): array {
+        $orderbymap = [
+            'courseid' => 'c.id',
+            'firstname' => 'u.firstname',
+            'default' => 'c.startdate',
+        ];
+        $orderbymapnodefault = [
+            'courseid' => 'c.id',
+            'firstname' => 'u.firstname',
+        ];
+
+        return [
+            'Valid options, no directions specified' => [
+                $orderbymap,
+                ['courseid', 'firstname'],
+                [],
+                ' ORDER BY c.id, u.firstname',
+            ],
+            'Valid options, some direction specified' => [
+                $orderbymap,
+                ['courseid', 'firstname'],
+                ['DESC'],
+                ' ORDER BY c.id DESC, u.firstname',
+            ],
+            'Valid options, all directions specified' => [
+                $orderbymap,
+                ['courseid', 'firstname'],
+                ['ASC', 'desc'],
+                ' ORDER BY c.id ASC, u.firstname DESC',
+            ],
+            'Valid options, valid and invalid directions specified' => [
+                $orderbymap,
+                ['courseid', 'firstname'],
+                ['BOOP', 'DESC'],
+                ' ORDER BY c.id, u.firstname DESC',
+            ],
+            'Valid options, all invalid directions specified' => [
+                $orderbymap,
+                ['courseid', 'firstname'],
+                ['BOOP', 'SNOOT'],
+                ' ORDER BY c.id, u.firstname',
+            ],
+            'Valid and invalid option default fallback, with valid directions' => [
+                $orderbymap,
+                ['thisdoesnotexist', 'courseid'],
+                ['asc', 'DESC'],
+                ' ORDER BY c.startdate ASC, c.id DESC',
+            ],
+            'Valid and invalid option default fallback, with invalid direction' => [
+                $orderbymap,
+                ['courseid', 'thisdoesnotexist'],
+                ['BOOP', 'SNOOT'],
+                ' ORDER BY c.id, c.startdate',
+            ],
+            'Valid and invalid option without default, with valid direction' => [
+                $orderbymapnodefault,
+                ['thisdoesnotexist', 'courseid'],
+                ['ASC', 'DESC'],
+                ' ORDER BY c.id DESC',
+            ],
+            'Valid and invalid option without default, with invalid direction' => [
+                $orderbymapnodefault,
+                ['thisdoesnotexist', 'courseid'],
+                ['BOOP', 'SNOOT'],
+                ' ORDER BY c.id',
+            ],
+            'Invalid option only without default, with valid direction' => [
+                $orderbymapnodefault,
+                ['thisdoesnotexist'],
+                ['ASC'],
+                '',
+            ],
+            'Invalid option only without default, with invalid direction' => [
+                $orderbymapnodefault,
+                ['thisdoesnotexist'],
+                ['BOOP'],
+                '',
+            ],
+            'Single valid option, direction specified' => [
+                $orderbymap,
+                ['firstname'],
+                ['ASC'],
+                ' ORDER BY u.firstname ASC',
+            ],
+            'Single valid option, direction not specified' => [
+                $orderbymap,
+                ['firstname'],
+                [],
+                ' ORDER BY u.firstname',
+            ],
+        ];
+    }
+
+    /**
+     * Tests the get_safe_orderby_multiple function.
+     *
+     * @dataProvider get_safe_orderby_multiple_provider
+     * @param array $orderbymap The ORDER BY parameter mapping array.
+     * @param array $orderbykeys The array of string keys being provided, to check against the map.
+     * @param array $directions The optional directions to order by.
+     * @param string $expected The expected string output of the method.
+     */
+    public function test_get_safe_orderby_multiple(array $orderbymap, array $orderbykeys, array $directions,
+            string $expected): void {
+        $actual = get_safe_orderby_multiple($orderbymap, $orderbykeys, $directions);
+        $this->assertEquals($expected, $actual);
     }
 }

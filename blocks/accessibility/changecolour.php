@@ -15,25 +15,27 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Sets the session variable for custom colour schemes                  (1)
+ * Sets the session variable for custom colour schemes
  *
  * This page accepts the required colour scheme as an argument, and
  * sets a session variable accordingly. If the colour scheme is 1 (the
  * theme default) the variable is unset.
  * If the page is being requested via AJAX, we just return HTTP 200, or
  * 400 if the parameter was invalid. If requesting normally, we redirect
- * to reset the saved setting, or to the page we came from as required. (2)
+ * to reset the saved setting, or to the page we came from as required.
  *
- * @package   block_accessibility                                      (3)
- * @copyright Copyright &copy; 2009 Taunton's College                   (4)
- * @author  Mark Johnson                                               (5)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later (6)
- * @param int scheme - The number of the colour scheme, 1-4             (7)
+ * @package   block_accessibility
+ * @copyright Copyright &copy; 2009 Taunton's College
+ * @author  Mark Johnson
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @param int scheme - The number of the colour scheme, 1-4
  */
 
 require_once('../../config.php');
 require_once($CFG->dirroot . '/blocks/accessibility/lib.php');
-require_login();
+
+// Special function to catch exceptions from site policies.
+block_accessibility_require_login();
 
 $scheme = required_param('scheme', PARAM_INT);
 
@@ -49,11 +51,10 @@ switch ($scheme) {
                 'userid' => $USER->id
         );
         if (!accessibility_is_ajax()) {
-            $redirect = required_param('redirect', PARAM_TEXT);
-            $urlparams['redirect'] = safe_redirect_url($redirect);
+            // If the 'redirect' argument passed in isn't local, set it to the root.
+            $urlparams['redirect'] = required_param('redirect', PARAM_LOCALURL) ?: $CFG->wwwroot;
         }
-        $redirecturl = new moodle_url('/blocks/accessibility/database.php', $urlparams);
-        redirect($redirecturl);
+        redirect(new moodle_url('/blocks/accessibility/database.php', $urlparams));
         break;
 
     case 2:
@@ -68,7 +69,7 @@ switch ($scheme) {
 }
 
 if (!accessibility_is_ajax()) {
-    $redirect = required_param('redirect', PARAM_TEXT);
-    $redirecturl = new moodle_url($redirect);
-    redirect($redirecturl);
+    // If the 'redirect' argument passed in isn't local, set it to the root.
+    $redirect = optional_param('redirect', $CFG->wwwroot, PARAM_LOCALURL) ?: $CFG->wwwroot;
+    redirect(new moodle_url($redirect));
 }

@@ -112,16 +112,15 @@ class behat_mod_forum extends behat_base {
      * @param TableNode $table
      */
     public function i_reply_post_from_forum_using_an_inpage_reply_with($postsubject, $forumname, TableNode $table) {
-
         // Navigate to forum.
-        $this->execute('behat_general::click_link', $this->escape($forumname));
+        $this->execute('behat_navigation::i_am_on_page_instance', [$this->escape($forumname), 'forum activity']);
         $this->execute('behat_general::click_link', $this->escape($postsubject));
         $this->execute('behat_general::click_link', get_string('reply', 'forum'));
 
         // Fill form and post.
         $this->execute('behat_forms::i_set_the_following_fields_to_these_values', $table);
 
-        $this->execute('behat_forms::press_button', get_string('submit', 'core'));
+        $this->execute('behat_forms::press_button', get_string('posttoforum', 'mod_forum'));
     }
 
     /**
@@ -132,9 +131,8 @@ class behat_mod_forum extends behat_base {
      * @param string $forumname The forum name
      */
     public function i_navigate_to_post_in_forum($postsubject, $forumname) {
-
         // Navigate to forum discussion.
-        $this->execute('behat_general::click_link', $this->escape($forumname));
+        $this->execute('behat_navigation::i_am_on_page_instance', [$this->escape($forumname), 'forum activity']);
         $this->execute('behat_general::click_link', $this->escape($postsubject));
     }
 
@@ -475,9 +473,8 @@ class behat_mod_forum extends behat_base {
      * @param string $buttonstr
      */
     protected function add_new_discussion($forumname, TableNode $table, $buttonstr) {
-
         // Navigate to forum.
-        $this->execute('behat_general::click_link', $this->escape($forumname));
+        $this->execute('behat_navigation::i_am_on_page_instance', [$this->escape($forumname), 'forum activity']);
         $this->execute('behat_general::click_link', $buttonstr);
         $this->execute('behat_forms::press_button', get_string('showadvancededitor'));
 
@@ -495,9 +492,8 @@ class behat_mod_forum extends behat_base {
      * @param string $buttonstr
      */
     protected function add_new_discussion_inline($forumname, TableNode $table, $buttonstr) {
-
         // Navigate to forum.
-        $this->execute('behat_general::click_link', $this->escape($forumname));
+        $this->execute('behat_navigation::i_am_on_page_instance', [$this->escape($forumname), 'forum activity']);
         $this->execute('behat_general::click_link', $buttonstr);
         $this->fill_new_discussion_form($table);
     }
@@ -529,6 +525,6 @@ class behat_mod_forum extends behat_base {
         global $DB;
         $post = $DB->get_record("forum_posts", array("subject" => $postsubject), 'id', MUST_EXIST);
         $url = new moodle_url('/mod/forum/post.php', ['reply' => $post->id]);
-        $this->getSession()->visit($this->locate_path($url->out_as_local_url(false)));
+        $this->execute('behat_general::i_visit', [$url]);
     }
 }

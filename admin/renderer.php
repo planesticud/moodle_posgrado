@@ -220,7 +220,7 @@ class core_admin_renderer extends plugin_renderer_base {
             $output .= $this->container_end();
         }
 
-        $button = new single_button($continueurl, get_string('upgradestart', 'admin'), 'get');
+        $button = new single_button($continueurl, get_string('upgradestart', 'admin'), 'get', true);
         $button->class = 'continuebutton';
         $output .= $this->render($button);
         $output .= $this->footer();
@@ -253,7 +253,7 @@ class core_admin_renderer extends plugin_renderer_base {
             $out .= $this->output->container(get_string('cancelinstallinfodir', 'core_plugin', $pluginfo->rootdir));
             if ($repotype = $pluginman->plugin_external_source($pluginfo->component)) {
                 $out .= $this->output->container(get_string('uninstalldeleteconfirmexternal', 'core_plugin', $repotype),
-                    'uninstalldeleteconfirmexternal');
+                    'alert alert-warning mt-2');
             }
         }
 
@@ -282,6 +282,8 @@ class core_admin_renderer extends plugin_renderer_base {
      * @param bool $overridetossl Whether or not ssl is being forced.
      * @param bool $invalidforgottenpasswordurl Whether the forgotten password URL does not link to a valid URL.
      * @param bool $croninfrequent If true, warn that cron hasn't run in the past few minutes
+     * @param bool $showcampaigncontent Whether the campaign content should be visible or not.
+     * @param bool $showfeedbackencouragement Whether the feedback encouragement content should be displayed or not.
      *
      * @return string HTML to output.
      */
@@ -289,7 +291,9 @@ class core_admin_renderer extends plugin_renderer_base {
             $cronoverdue, $dbproblems, $maintenancemode, $availableupdates, $availableupdatesfetch,
             $buggyiconvnomb, $registered, array $cachewarnings = array(), $eventshandlers = 0,
             $themedesignermode = false, $devlibdir = false, $mobileconfigured = false,
-            $overridetossl = false, $invalidforgottenpasswordurl = false, $croninfrequent = false) {
+            $overridetossl = false, $invalidforgottenpasswordurl = false, $croninfrequent = false,
+            $showcampaigncontent = false, bool $showfeedbackencouragement = false) {
+
         global $CFG;
         $output = '';
 
@@ -312,6 +316,8 @@ class core_admin_renderer extends plugin_renderer_base {
         $output .= $this->registration_warning($registered);
         $output .= $this->mobile_configuration_warning($mobileconfigured);
         $output .= $this->forgotten_password_url_warning($invalidforgottenpasswordurl);
+        $output .= $this->userfeedback_encouragement($showfeedbackencouragement);
+        $output .= $this->campaign_content($showcampaigncontent);
 
         //////////////////////////////////////////////////////////////////////////////////////////////////
         ////  IT IS ILLEGAL AND A VIOLATION OF THE GPL TO HIDE, REMOVE OR MODIFY THIS COPYRIGHT NOTICE ///
@@ -433,7 +439,7 @@ class core_admin_renderer extends plugin_renderer_base {
 
         if ($repotype = $pluginman->plugin_external_source($pluginfo->component)) {
             $confirm .= $this->output->container(get_string('uninstalldeleteconfirmexternal', 'core_plugin', $repotype),
-                'uninstalldeleteconfirmexternal');
+                'alert alert-warning mt-2');
         }
 
         // After any uninstall we must execute full upgrade to finish the cleanup!
@@ -512,7 +518,7 @@ class core_admin_renderer extends plugin_renderer_base {
      * @return string HTML to output.
      */
     protected function warning($message, $type = 'warning') {
-        return $this->box($message, 'generalbox admin' . $type);
+        return $this->box($message, 'generalbox alert alert-' . $type);
     }
 
     /**
@@ -527,7 +533,7 @@ class core_admin_renderer extends plugin_renderer_base {
             return $this->warning(get_string('datarootsecuritywarning', 'admin', $CFG->dataroot));
 
         } else if ($insecuredataroot == INSECURE_DATAROOT_ERROR) {
-            return $this->warning(get_string('datarootsecurityerror', 'admin', $CFG->dataroot), 'error');
+            return $this->warning(get_string('datarootsecurityerror', 'admin', $CFG->dataroot), 'danger');
 
         } else {
             return '';
@@ -545,7 +551,7 @@ class core_admin_renderer extends plugin_renderer_base {
         if ($devlibdir) {
             $moreinfo = new moodle_url('/report/security/index.php');
             $warning = get_string('devlibdirpresent', 'core_admin', ['moreinfourl' => $moreinfo->out()]);
-            return $this->warning($warning, 'error');
+            return $this->warning($warning, 'danger');
 
         } else {
             return '';
@@ -602,19 +608,9 @@ class core_admin_renderer extends plugin_renderer_base {
             return '';
         }
 
-        if (empty($CFG->cronclionly)) {
-            $url = new moodle_url('/admin/cron.php');
-            if (!empty($CFG->cronremotepassword)) {
-                $url = new moodle_url('/admin/cron.php', array('password' => $CFG->cronremotepassword));
-            }
-
-            return $this->warning(get_string('cronwarning', 'admin', $url->out()) . '&nbsp;' .
-                    $this->help_icon('cron', 'admin'));
-        }
-
-        // $CFG->cronclionly is not empty: cron can run only from CLI.
-        return $this->warning(get_string('cronwarningcli', 'admin') . '&nbsp;' .
-                $this->help_icon('cron', 'admin'));
+        $check = new \tool_task\check\cronrunning();
+        $result = $check->get_result();
+        return $this->warning($result->get_summary() . '&nbsp;' . $this->help_icon('cron', 'admin'));
     }
 
     /**
@@ -630,9 +626,9 @@ class core_admin_renderer extends plugin_renderer_base {
             return '';
         }
 
-        $expectedfrequency = $CFG->expectedcronfrequency ?? 200;
-        return $this->warning(get_string('croninfrequent', 'admin', $expectedfrequency) . '&nbsp;' .
-                $this->help_icon('cron', 'admin'));
+        $check = new \tool_task\check\cronrunning();
+        $result = $check->get_result();
+        return $this->warning($result->get_summary() . '&nbsp;' . $this->help_icon('cron', 'admin'));
     }
 
     /**
@@ -722,7 +718,7 @@ class core_admin_renderer extends plugin_renderer_base {
         return $this->warning(
                     $this->container(get_string('maturitycorewarning', 'admin', $maturitylevel)) .
                     $this->container($this->doc_link('admin/versions', get_string('morehelp'))),
-                'error');
+                'danger');
     }
 
     /*
@@ -738,7 +734,7 @@ class core_admin_renderer extends plugin_renderer_base {
         }
 
         $warning = (get_string('testsiteupgradewarning', 'admin', $testsite));
-        return $this->warning($warning, 'error');
+        return $this->warning($warning, 'danger');
     }
 
     /**
@@ -773,7 +769,7 @@ class core_admin_renderer extends plugin_renderer_base {
         $level = 'warning';
 
         if ($maturity == MATURITY_ALPHA) {
-            $level = 'error';
+            $level = 'danger';
         }
 
         $maturitylevel = get_string('maturity' . $maturity, 'admin');
@@ -889,6 +885,20 @@ class core_admin_renderer extends plugin_renderer_base {
     }
 
     /**
+     * Display campaign content.
+     *
+     * @param bool $showcampaigncontent Whether the campaign content should be visible or not.
+     * @return string the campaign content raw html.
+     */
+    protected function campaign_content(bool $showcampaigncontent): string {
+        if (!$showcampaigncontent) {
+            return '';
+        }
+
+        return $this->render_from_template('core/campaign_content', ['lang' => current_language()]);
+    }
+
+    /**
      * Display a warning about the forgotten password URL not linking to a valid URL.
      *
      * @param boolean $invalidforgottenpasswordurl true if the forgotten password URL is not valid
@@ -956,7 +966,7 @@ class core_admin_renderer extends plugin_renderer_base {
     protected function release_notes_link() {
         $releasenoteslink = get_string('releasenoteslink', 'admin', 'http://docs.moodle.org/dev/Releases');
         $releasenoteslink = str_replace('target="_blank"', 'onclick="this.target=\'_blank\'"', $releasenoteslink); // extremely ugly validation hack
-        return $this->box($releasenoteslink, 'generalbox releasenoteslink');
+        return $this->box($releasenoteslink, 'generalbox alert alert-info');
     }
 
     /**
@@ -985,7 +995,7 @@ class core_admin_renderer extends plugin_renderer_base {
      * @return string HTML code
      */
     public function plugins_check_table(core_plugin_manager $pluginman, $version, array $options = array()) {
-
+        global $CFG;
         $plugininfo = $pluginman->get_plugins();
 
         if (empty($plugininfo)) {
@@ -1071,8 +1081,10 @@ class core_admin_renderer extends plugin_renderer_base {
                 }
 
                 $coredependency = $plugin->is_core_dependency_satisfied($version);
+                $incompatibledependency = $plugin->is_core_compatible_satisfied($CFG->branch);
+
                 $otherpluginsdependencies = $pluginman->are_dependencies_satisfied($plugin->get_other_required_plugins());
-                $dependenciesok = $coredependency && $otherpluginsdependencies;
+                $dependenciesok = $coredependency && $otherpluginsdependencies && $incompatibledependency;
 
                 $statuscode = $plugin->get_status();
                 $row->attributes['class'] .= ' status-' . $statuscode;
@@ -1098,7 +1110,7 @@ class core_admin_renderer extends plugin_renderer_base {
 
                 if (!empty($installabortable[$plugin->component])) {
                     $status .= $this->output->single_button(
-                        new moodle_url($this->page->url, array('abortinstall' => $plugin->component)),
+                        new moodle_url($this->page->url, array('abortinstall' => $plugin->component, 'confirmplugincheck' => 0)),
                         get_string('cancelinstallone', 'core_plugin'),
                         'post',
                         array('class' => 'actionbutton cancelinstallone d-block mt-1')
@@ -1122,8 +1134,11 @@ class core_admin_renderer extends plugin_renderer_base {
                 }
 
                 $status = new html_table_cell($sourcelabel.' '.$status);
-
-                $requires = new html_table_cell($this->required_column($plugin, $pluginman, $version));
+                if ($plugin->pluginsupported != null) {
+                    $requires = new html_table_cell($this->required_column($plugin, $pluginman, $version, $CFG->branch));
+                } else {
+                    $requires = new html_table_cell($this->required_column($plugin, $pluginman, $version));
+                }
 
                 $statusisboring = in_array($statuscode, array(
                         core_plugin_manager::PLUGIN_STATUS_NODB, core_plugin_manager::PLUGIN_STATUS_UPTODATE));
@@ -1194,7 +1209,7 @@ class core_admin_renderer extends plugin_renderer_base {
 
         if ($installabortable) {
             $out .= $this->output->single_button(
-                new moodle_url($this->page->url, array('abortinstallx' => 1)),
+                new moodle_url($this->page->url, array('abortinstallx' => 1, 'confirmplugincheck' => 0)),
                 get_string('cancelinstallall', 'core_plugin', count($installabortable)),
                 'post',
                 array('class' => 'singlebutton cancelinstallall mr-1')
@@ -1459,15 +1474,17 @@ class core_admin_renderer extends plugin_renderer_base {
      * @param \core\plugininfo\base $plugin the plugin we are rendering the row for.
      * @param core_plugin_manager $pluginman provides data on all the plugins.
      * @param string $version
+     * @param int $branch the current Moodle branch
      * @return string HTML code
      */
-    protected function required_column(\core\plugininfo\base $plugin, core_plugin_manager $pluginman, $version) {
+    protected function required_column(\core\plugininfo\base $plugin, core_plugin_manager $pluginman, $version, $branch = null) {
 
         $requires = array();
         $displayuploadlink = false;
         $displayupdateslink = false;
 
-        foreach ($pluginman->resolve_requirements($plugin, $version) as $reqname => $reqinfo) {
+        $requirements = $pluginman->resolve_requirements($plugin, $version, $branch);
+        foreach ($requirements as $reqname => $reqinfo) {
             if ($reqname === 'core') {
                 if ($reqinfo->status == $pluginman::REQUIREMENT_STATUS_OK) {
                     $class = 'requires-ok text-muted';
@@ -1476,7 +1493,19 @@ class core_admin_renderer extends plugin_renderer_base {
                     $class = 'requires-failed';
                     $label = html_writer::span(get_string('dependencyfails', 'core_plugin'), 'badge badge-danger');
                 }
-                if ($reqinfo->reqver != ANY_VERSION) {
+
+                if ($branch != null && !$plugin->is_core_compatible_satisfied($branch)) {
+                    $requires[] = html_writer::tag('li',
+                    html_writer::span(get_string('incompatibleversion', 'core_plugin', $branch), 'dep dep-core').
+                    ' '.$label, array('class' => $class));
+
+                } else if ($branch != null && $plugin->pluginsupported != null) {
+                    $requires[] = html_writer::tag('li',
+                        html_writer::span(get_string('moodlebranch', 'core_plugin',
+                        array('min' => $plugin->pluginsupported[0], 'max' => $plugin->pluginsupported[1])), 'dep dep-core').
+                        ' '.$label, array('class' => $class));
+
+                } else if ($reqinfo->reqver != ANY_VERSION) {
                     $requires[] = html_writer::tag('li',
                         html_writer::span(get_string('moodleversion', 'core_plugin', $plugin->versionrequires), 'dep dep-core').
                         ' '.$label, array('class' => $class));
@@ -1565,6 +1594,13 @@ class core_admin_renderer extends plugin_renderer_base {
             );
         }
 
+        // Check if supports is present, and $branch is not in, only if $incompatible check was ok.
+        if ($plugin->pluginsupported != null && $class == 'requires-ok' && $branch != null) {
+            if ($pluginman->check_explicitly_supported($plugin, $branch) == $pluginman::VERSION_NOT_SUPPORTED) {
+                $out .= html_writer::div(get_string('notsupported', 'core_plugin', $branch));
+            }
+        }
+
         return $out;
 
     }
@@ -1580,12 +1616,18 @@ class core_admin_renderer extends plugin_renderer_base {
 
         $plugininfo = $pluginman->get_plugins();
 
-        $numtotal = $numextension = $numupdatable = 0;
+        $numtotal = $numextension = $numupdatable = $numinstallable = 0;
 
         foreach ($plugininfo as $type => $plugins) {
             foreach ($plugins as $name => $plugin) {
-                if ($plugin->available_updates()) {
+                if ($res = $plugin->available_updates()) {
                     $numupdatable++;
+                    foreach ($res as $updateinfo) {
+                        if ($pluginman->is_remote_plugin_installable($updateinfo->component, $updateinfo->version, $reason, false)) {
+                            $numinstallable++;
+                            break;
+                        }
+                    }
                 }
                 if ($plugin->get_status() === core_plugin_manager::PLUGIN_STATUS_MISSING) {
                     continue;
@@ -1628,16 +1670,13 @@ class core_admin_renderer extends plugin_renderer_base {
             $out .= $this->output->heading(get_string('overviewext', 'core_plugin'), 3);
         }
 
-        if ($numupdatable) {
-            $installableupdates = $pluginman->filter_installable($pluginman->available_updates());
-            if ($installableupdates) {
-                $out .= $this->output->single_button(
-                    new moodle_url($this->page->url, array('installupdatex' => 1)),
-                    get_string('updateavailableinstallall', 'core_admin', count($installableupdates)),
-                    'post',
-                    array('class' => 'singlebutton updateavailableinstallall')
-                );
-            }
+        if ($numinstallable) {
+            $out .= $this->output->single_button(
+                new moodle_url($this->page->url, array('installupdatex' => 1)),
+                get_string('updateavailableinstallall', 'core_admin', $numinstallable),
+                'post',
+                array('class' => 'singlebutton updateavailableinstallall')
+            );
         }
 
         $out .= html_writer::div($infoall, 'info info-all').
@@ -1871,7 +1910,7 @@ class core_admin_renderer extends plugin_renderer_base {
             'infos'
         );
 
-        if ($pluginman->is_remote_plugin_installable($updateinfo->component, $updateinfo->version, $reason)) {
+        if ($pluginman->is_remote_plugin_installable($updateinfo->component, $updateinfo->version, $reason, false)) {
             $box .= $this->output->single_button(
                 new moodle_url($this->page->url, array('installupdate' => $updateinfo->component,
                     'installupdateversion' => $updateinfo->version)),
@@ -1911,7 +1950,7 @@ class core_admin_renderer extends plugin_renderer_base {
             get_string('status'),
         );
         $servertable->colclasses = array('centeralign name', 'centeralign info', 'leftalign report', 'leftalign plugin', 'centeralign status');
-        $servertable->attributes['class'] = 'admintable environmenttable generaltable';
+        $servertable->attributes['class'] = 'admintable environmenttable generaltable table-sm';
         $servertable->id = 'serverstatus';
 
         $serverdata = array('ok'=>array(), 'warn'=>array(), 'error'=>array());
@@ -1924,7 +1963,7 @@ class core_admin_renderer extends plugin_renderer_base {
             get_string('status'),
         );
         $othertable->colclasses = array('aligncenter info', 'alignleft report', 'alignleft plugin', 'aligncenter status');
-        $othertable->attributes['class'] = 'admintable environmenttable generaltable';
+        $othertable->attributes['class'] = 'admintable environmenttable generaltable table-sm';
         $othertable->id = 'otherserverstatus';
 
         $otherdata = array('ok'=>array(), 'warn'=>array(), 'error'=>array());
@@ -2091,8 +2130,16 @@ class core_admin_renderer extends plugin_renderer_base {
         $output .= $this->container_start('upgradekeyreq');
         $output .= $this->heading(get_string('upgradekeyreq', 'core_admin'));
         $output .= html_writer::start_tag('form', array('method' => 'POST', 'action' => $url));
-        $output .= html_writer::empty_tag('input', array('name' => 'upgradekey', 'type' => 'password'));
-        $output .= html_writer::empty_tag('input', array('value' => get_string('submit'), 'type' => 'submit'));
+        $output .= html_writer::empty_tag('input', [
+            'name' => 'upgradekey',
+            'type' => 'password',
+            'class' => 'form-control w-auto',
+        ]);
+        $output .= html_writer::empty_tag('input', [
+            'type' => 'submit',
+            'value' => get_string('submit'),
+            'class' => 'btn btn-primary mt-3',
+        ]);
         $output .= html_writer::end_tag('form');
         $output .= $this->container_end();
         $output .= $this->footer();
@@ -2143,5 +2190,22 @@ class core_admin_renderer extends plugin_renderer_base {
         );
 
         return $this->output->box($out);
+    }
+
+    /**
+     * Display message about benefits of enabling the user feedback feature.
+     *
+     * @param bool $showfeedbackencouragement Whether the encouragement content should be displayed or not
+     * @return string
+     */
+    protected function userfeedback_encouragement(bool $showfeedbackencouragement): string {
+        $output = '';
+
+        if ($showfeedbackencouragement) {
+            $settingslink = new moodle_url('/admin/settings.php', ['section' => 'userfeedback']);
+            $output .= $this->warning(get_string('userfeedbackencouragement', 'admin', $settingslink->out()), 'info');
+        }
+
+        return $output;
     }
 }

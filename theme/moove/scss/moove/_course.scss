@@ -1,5 +1,4 @@
 // stylelint-disable declaration-no-important
-
 body.coursepresentation-cover {
     #page {
         padding-top: 280px;
@@ -16,9 +15,11 @@ body.coursepresentation-cover {
     }
 }
 
-#page-course-view-topics {
+#page-course-view-topics,
+#page-course-view-preview {
     &.editing {
-        .course-content .topics .section {
+        .course-content .topics .section,
+        .course-content .preview .section {
             width: calc(100% - 20px);
         }
     }
@@ -29,7 +30,8 @@ body.coursepresentation-cover {
     }
 
     .course-content {
-        .topics {
+        .topics,
+        .preview {
             #section-0 {
                 border: none;
             }
@@ -96,10 +98,9 @@ body.coursepresentation-cover {
             border-style: solid;
             border-width: 5px 5px 5px 0;
             background: #fff;
-            margin: 0 0 0 -20px;
+            margin: 0 0 0 -28px;
             padding: .75rem;
             letter-spacing: .1em;
-            text-transform: uppercase;
             color: $brand-primary;
             font-weight: 700;
             text-align: center;
@@ -145,7 +146,6 @@ body.coursepresentation-cover {
         .mdl-left .text .nav_guide,
         .mdl-right .text .nav_guide {
             letter-spacing: .1em;
-            text-transform: uppercase;
             font-style: normal;
             color: #565656;
         }
@@ -167,7 +167,6 @@ body.pagelayout-incourse {
         .nav-guide {
             display: block;
             letter-spacing: .1em;
-            text-transform: uppercase;
             font-style: normal;
         }
 
@@ -269,8 +268,10 @@ body#page-mod-quiz-attempt.pagelayout-secure {
         }
     }
 
-    body#page-course-view-topics {
-        .course-content .topics .section {
+    body#page-course-view-topics,
+    body#page-course-view-preview {
+        .course-content .topics .section,
+        .course-content .preview .section {
             padding-bottom: 0;
 
             ul.section {
@@ -297,7 +298,6 @@ body#page-mod-quiz-attempt.pagelayout-secure {
         border: 1px solid #dadada;
         border-top-width: .2em;
         letter-spacing: .1em;
-        text-transform: uppercase;
         font-style: normal;
         font-size: 1.4rem;
 

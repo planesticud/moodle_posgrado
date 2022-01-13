@@ -40,6 +40,7 @@
  *  - $CFG->tempdir  - Path to moodle's temp file directory on server's filesystem.
  *  - $CFG->cachedir - Path to moodle's cache directory on server's filesystem (shared by cluster nodes).
  *  - $CFG->localcachedir - Path to moodle's local cache directory (not shared by cluster nodes).
+ *  - $CFG->localrequestdir - Path to moodle's local temp request directory (not shared by cluster nodes).
  *
  * @global object $CFG
  * @name $CFG
@@ -206,6 +207,11 @@ if (!isset($CFG->cachedir)) {
 // Allow overriding of localcachedir.
 if (!isset($CFG->localcachedir)) {
     $CFG->localcachedir = "$CFG->dataroot/localcache";
+}
+
+// Allow overriding of localrequestdir.
+if (!isset($CFG->localrequestdir)) {
+    $CFG->localrequestdir = sys_get_temp_dir() . '/requestdir';
 }
 
 // Location of all languages except core English pack.
@@ -566,6 +572,11 @@ if (defined('BEHAT_SITE_RUNNING') && !defined('BEHAT_TEST') && !defined('BEHAT_U
     set_error_handler('behat_error_handler', E_ALL | E_STRICT);
 }
 
+if (defined('WS_SERVER') && WS_SERVER) {
+    require_once($CFG->dirroot . '/webservice/lib.php');
+    set_exception_handler('early_ws_exception_handler');
+}
+
 // If there are any errors in the standard libraries we want to know!
 error_reporting(E_ALL | E_STRICT);
 
@@ -788,7 +799,7 @@ if (CLI_SCRIPT) {
 
 // Start session and prepare global $SESSION, $USER.
 if (empty($CFG->sessiontimeout)) {
-    $CFG->sessiontimeout = 7200;
+    $CFG->sessiontimeout = 8 * 60 * 60;
 }
 \core\session\manager::start();
 

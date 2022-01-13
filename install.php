@@ -322,7 +322,7 @@ if ($config->stage == INSTALL_DOWNLOADLANG) {
     if (empty($CFG->dataroot)) {
         $config->stage = INSTALL_PATHS;
 
-    } else if (false and is_dataroot_insecure()) {
+    } else if (is_dataroot_insecure()) {
         $hint_dataroot = get_string('pathsunsecuredataroot', 'install');
         $config->stage = INSTALL_PATHS;
 
@@ -493,6 +493,7 @@ if ($config->stage == INSTALL_DATABASETYPE) {
                                   get_string('databasetypesub', 'install'));
 
     $databases = array('mysqli' => moodle_database::get_driver_instance('mysqli', 'native'),
+                       'auroramysql' => moodle_database::get_driver_instance('auroramysql', 'native'),
                        'mariadb'=> moodle_database::get_driver_instance('mariadb', 'native'),
                        'pgsql'  => moodle_database::get_driver_instance('pgsql',  'native'),
                        'oci'    => moodle_database::get_driver_instance('oci',    'native'),

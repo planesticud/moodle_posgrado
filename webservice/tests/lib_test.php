@@ -40,7 +40,7 @@ class webservice_test extends advanced_testcase {
     /**
      * Setup.
      */
-    public function setUp() {
+    public function setUp(): void {
         // Calling parent is good, always.
         parent::setUp();
 
@@ -191,6 +191,46 @@ class webservice_test extends advanced_testcase {
         webservice::update_token_lastaccess($token, $before + 60);
         $token = $DB->get_record('external_tokens', ['token' => $tokenstr]);
         $this->assertEquals($before + 60, $token->lastaccess);
+    }
+
+    /**
+     * Data provider for {@see test_get_active_tokens}
+     *
+     * @return array
+     */
+    public function get_active_tokens_provider(): array {
+        return [
+            'No expiration' => [0, true],
+            'Active' => [time() + DAYSECS, true],
+            'Expired' => [time() - DAYSECS, false],
+        ];
+    }
+
+    /**
+     * Test getting active tokens for a user
+     *
+     * @param int $validuntil
+     * @param bool $expectedactive
+     *
+     * @dataProvider get_active_tokens_provider
+     */
+    public function test_get_active_tokens(int $validuntil, bool $expectedactive): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $user = $this->getDataGenerator()->create_user();
+
+        $serviceid = $DB->get_field('external_services', 'id', ['shortname' => MOODLE_OFFICIAL_MOBILE_SERVICE], MUST_EXIST);
+        external_generate_token(EXTERNAL_TOKEN_PERMANENT, $serviceid, $user->id, context_system::instance(), $validuntil, '');
+
+        $tokens = webservice::get_active_tokens($user->id);
+        if ($expectedactive) {
+            $this->assertCount(1, $tokens);
+            $this->assertEquals($serviceid, reset($tokens)->externalserviceid);
+        } else {
+            $this->assertEmpty($tokens);
+        }
     }
 
     /**

@@ -253,7 +253,7 @@ function quiz_start_new_attempt($quizobj, $quba, $attempt, $attemptnumber, $time
             $forcedvariantsbyseed, $variantstrategy);
     }
 
-    $quba->start_all_questions($variantstrategy, $timenow);
+    $quba->start_all_questions($variantstrategy, $timenow, $attempt->userid);
 
     // Work out the attempt layout.
     $sections = $quizobj->get_sections();
@@ -316,7 +316,7 @@ function quiz_start_attempt_built_on_last($quba, $attempt, $lastattempt) {
 
     $oldnumberstonew = array();
     foreach ($oldquba->get_attempt_iterator() as $oldslot => $oldqa) {
-        $newslot = $quba->add_question($oldqa->get_question(), $oldqa->get_max_mark());
+        $newslot = $quba->add_question($oldqa->get_question(false), $oldqa->get_max_mark());
 
         $quba->start_question_based_on($newslot, $oldqa);
 
@@ -1799,7 +1799,8 @@ function quiz_attempt_submitted_handler($event) {
 
     // Update completion state.
     $completion = new completion_info($course);
-    if ($completion->is_enabled($cm) && ($quiz->completionattemptsexhausted || $quiz->completionpass)) {
+    if ($completion->is_enabled($cm) &&
+        ($quiz->completionattemptsexhausted || $quiz->completionpass || $quiz->completionminattempts)) {
         $completion->update_state($cm, COMPLETION_COMPLETE, $event->userid);
     }
     return quiz_send_notification_messages($course, $quiz, $attempt,
@@ -2069,7 +2070,7 @@ function quiz_question_tostring($question, $showicon = false, $showquestiontext 
     if ($showidnumber && $question->idnumber !== null && $question->idnumber !== '') {
         $result .= ' ' . html_writer::span(
                 html_writer::span(get_string('idnumber', 'question'), 'accesshide') .
-                ' ' . $question->idnumber, 'badge badge-primary');
+                ' ' . s($question->idnumber), 'badge badge-primary');
     }
 
     // Question tags.

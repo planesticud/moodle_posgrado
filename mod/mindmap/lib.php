@@ -39,7 +39,6 @@ function mindmap_add_instance($mindmap) {
     global $USER, $DB;
 
     $mindmap->mindmapdata = '';
-    $mindmap->xmldata = ''; // This is kept for historic purpose..
     $mindmap->userid = $USER->id;
     $mindmap->timecreated = time();
 
@@ -88,6 +87,47 @@ function mindmap_delete_instance($id) {
     }
 
     return $result;
+}
+
+/**
+ * Called by course/reset.php
+ */
+function mindmap_reset_course_form_definition(&$mform) {
+    $mform->addElement('header', 'mindmapheader', get_string('modulenameplural', 'mindmap'));
+
+    $mform->addElement('checkbox', 'delete_mindmap_all_content', get_string('deleteallmindmapscontent','mindmap'));
+}
+
+function mindmap_reset_course_form_defaults($course) {
+    return array('delete_mindmap_all_content' => 1);
+}
+
+/**
+ * This function is used by the reset_course_userdata function in moodlelib.
+ * This function will clean up all mindmaps.
+ *
+ * @global object
+ * @global object
+ * @param $data the data submitted from the reset course.
+ * @return array status array
+ */
+function mindmap_reset_userdata($data) {
+    global $DB;
+
+    $status = array();
+    $componentstr = get_string('modulenameplural', 'mindmap');
+
+    if (!empty($data->delete_mindmap_all_content)) {
+        $course = get_course($data->courseid);
+        $mindmaps = get_all_instances_in_course('mindmap', $course);
+        foreach ($mindmaps as $mindmap) {
+            $mindmap->mindmapdata = '';
+            $DB->update_record('mindmap', $mindmap);
+        }
+        $status[] = array('component' => $componentstr, 'item' => get_string('deleteallmindmapscontent', 'mindmap'), 'error' => false);
+    }
+
+    return $status;
 }
 
 /**
@@ -222,7 +262,6 @@ function mindmap_supports($feature) {
             return false;
         case FEATURE_BACKUP_MOODLE2:
             return true;
-
         default:
             return null;
     }
@@ -273,10 +312,6 @@ function mindmap_page_type_list($pagetype, $parentcontext, $currentcontext) {
  */
 function mindmap_extend_settings_navigation(settings_navigation $settings, navigation_node $mindmap) {
     global $PAGE;
-
-    if (has_capability('mod/mindmap:addinstance', $PAGE->cm->context)) {
-        $mindmap->add(get_string('convertfromflash', 'mod_mindmap'), new moodle_url('/mod/mindmap/convert.php', array('id' => $PAGE->cm->id)));
-    }
 }
 
 /**
@@ -297,46 +332,5 @@ function array_builder($array, $result = array()) {
         }
     }
 
-    return $result;
-}
-
-/**
- * @param $array
- * @param bool $parentconnection
- * @return array
- */
-function convert_node_helper($array, $parentconnection = false) {
-    $result = array();
-    $pattern = array('Ö', 'Ä', 'Õ', 'Ü', 'ö', 'ä', 'õ', 'ü');
-    $replace = array('O', 'A', 'O', 'U', 'o', 'a', 'o', 'u');
-    foreach ($array as $node => $key) {
-        if (empty($key['Text'])) {
-            continue;
-        }
-        $jsonobject = array();
-        $jsonobject['x'] = $key['@attributes']['x_Coord'];
-        $jsonobject['y'] = $key['@attributes']['y_Coord'];
-        $jsonobject['id'] = str_replace($pattern, $replace, $key['Text']) . $key['@attributes']['x_Coord'];
-        $jsonobject['label'] = $key['Text'];
-        $jsonobject['font']['color'] = '#' . $key['Format']['FontColor'];
-        $jsonobject['color']['background'] = '#' . $key['Format']['BackgrColor'];
-        if (!empty($parentconnection)) {
-            $jsonobject['connections'][] = $parentconnection;
-        }
-        if (!empty($key['Node']) && is_array($key['Node'])) {
-            foreach ($key['Node'] as $subkey => $subval) {
-                if (empty($subval['Text'])) {
-                    continue;
-                }
-                $jsonobject['connections'][] = str_replace($pattern, $replace, $subval['Text']) . $subval['@attributes']['x_Coord'];
-            }
-        }
-        $result[] = $jsonobject;
-        if (!empty($key['Node']) && is_array($key['Node'])) {
-            $parentconnection = str_replace($pattern, $replace, $key['Text']) . $key['@attributes']['x_Coord'];
-            $result[] = convert_node_helper($key['Node'], $parentconnection);
-        }
-
-    }
     return $result;
 }

@@ -20,19 +20,20 @@
  * This file is the cornerstone of the block - when the page loads, it
  * checks if the user has a custom settings for the font size and colour
  * scheme (either in the session or the database) and creates a stylesheet
- * to override the standard styles with this setting.                  (2)
+ * to override the standard styles with this setting.
  *
- * @package   block_accessibility                                      (4)
- * @copyright Copyright 2009 onwards Taunton's College                   (5)
- * @author Mark Johnson                                                 (6)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later (7)
+ * @package   block_accessibility
+ * @copyright 2021 Brickfield Education Labs <https://www.brickfield.ie/>
+ * @author    Jay Churchward <jay@brickfieldlabs.ie>
+ * @author    Mark Johnson
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version = 2017051700;
-$plugin->cron = 3600;
-$plugin->requires = 2016051900;
 $plugin->component = 'block_accessibility';
+$plugin->version = 2021092202;
+$plugin->requires = 2020061500; // Moodle 3.9 and up.
+$plugin->release  = '1.39.03 (Build - 2021092201)';
+$plugin->cron = 3600;
 $plugin->maturity = MATURITY_STABLE;
-$plugin->release = '2.2.4';

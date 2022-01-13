@@ -148,10 +148,6 @@
     background-color: white;
 }
 
-.path-mod-assign .gradingtable .c0 div.selectall {
-    margin-left: 7px;
-}
-
 .path-mod-assign .gradingtable .yui3-menu ul {
     margin: 0;
 }
@@ -646,9 +642,11 @@
     border-bottom: 1px solid #ddd;
 }
 
+.path-mod-assign .overdue,
+.path-mod-assign .overduesubmission,
 .path-mod-assign [data-region="grade-panel"] td.submissionnotgraded,
 .path-mod-assign [data-region="grade-panel"] div.submissionnotgraded {
-    color: red;
+    color: #ca3120;
     background-color: transparent;
 }
 
@@ -969,16 +967,6 @@
     left: 0;
     width: 100%;
     height: 60px;
-}
-
-/*rtl:ignore*/
-.path-mod-assign [data-region="grade-actions-panel"] [data-region="grade-actions"] .collapse-buttons {
-    position: absolute;
-    top: 0;
-    left: auto;
-    right: 15px;
-    margin: 0;
-    line-height: 60px;
 }
 
 .path-mod-assign [data-region="grade-actions"] {

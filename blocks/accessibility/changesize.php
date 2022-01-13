@@ -15,25 +15,24 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Changes the text size via PHP or AJAX                               (1)
+ * Changes the text size via PHP or AJAX
  *
  * This file finds the current font size, increases/decreases/resets it
  * as specified, and stores it in the $USER->fontsize session variable.
  * If requested via AJAX, it also returns the font size as a JSON
  * string or suiable error code. If not, it redirects the user back to
- * where they came from.                                               (2)
+ * where they came from.
  *
- * @package   block_accessibility                                      (3)
+ * @package   block_accessibility
  * @author      Mark Johnson <mark.johnson@tauntons.ac.uk>
  * @copyright   2010 Tauntons College, UK
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later (5)
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-
-header('Cache-Control: no-cache');
-
 require_once('../../config.php');
 require_once($CFG->dirroot . '/blocks/accessibility/lib.php');
-require_login();
+
+// Special function to catch exceptions from site policies.
+block_accessibility_require_login();
 
 // If the user hasn't already changed the size, we need to find a default/referent so we know where we're
 // increasing/decreasing from.
@@ -45,10 +44,18 @@ if (!isset($USER->defaultfontsize)) {
 // NOTE: User settings priority: 1. $USER session, 2. database, 3. default.
 $current = $USER->defaultfontsize;
 if (isset($USER->fontsize)) {
-    $current = $USER->fontsize; // User session.
+    if (!is_null($USER->fontsize)) {
+        $current = $USER->fontsize; // User session.
+    } else {
+        $current = DEFAULT_FONTSIZE;
+    }
 } else {
     if ($userstyle = $DB->get_record('block_accessibility', array('userid' => $USER->id))) {
-        $current = $userstyle->fontsize; // User stored settings.
+        if (!is_null($userstyle->fontsize)) {
+            $current = $USER->fontsize; // User session.
+        } else {
+            $current = DEFAULT_FONTSIZE;
+        }
     }
 }
 
@@ -91,30 +98,27 @@ switch ($op) {
                 'userid' => $USER->id
         );
         if (!accessibility_is_ajax()) {
-            $redirect = required_param('redirect', PARAM_TEXT);
-            $urlparams['redirect'] = safe_redirect_url($redirect);
+            // If the 'redirect' argument passed in isn't local, set it to the root.
+            $urlparams['redirect'] = required_param('redirect', PARAM_LOCALURL) ?: $CFG->wwwroot;
         }
-
-        $redirecturl = new moodle_url('/blocks/accessibility/database.php', $urlparams);
-        redirect($redirecturl);
-
+        redirect(new moodle_url('/blocks/accessibility/database.php', $urlparams));
         break;
     default:
         if (accessibility_is_ajax()) {
             header('HTTP/1.0 400 Bad Request');
         } else {
-            print_error('invalidop', 'block_accessibility');
+            throw new moodle_exception('invalidop', 'block_accessibility');
         }
         exit();
 }
 
-// Set the new font size in %
+// Set the new font size in %.
 $USER->fontsize = $new; // If we've just increased or decreased, save the new size to the session.
 
 if (!accessibility_is_ajax()) {
     // Otherwise, redirect the user
     // if action is not achieved through ajax, redirect back to page is required.
-    $redirect = required_param('redirect', PARAM_TEXT);
-    $redirecturl = new moodle_url($redirect);
-    redirect($redirecturl);
+    // If the 'redirect' argument passed in isn't local, set it to the root.
+    $redirect = optional_param('redirect', $CFG->wwwroot, PARAM_LOCALURL) ?: $CFG->wwwroot;
+    redirect(new moodle_url($redirect));
 }

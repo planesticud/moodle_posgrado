@@ -39,7 +39,7 @@ require_once("$CFG->dirroot/mod/url/lib.php");
 function url_appears_valid_url($url) {
     if (preg_match('/^(\/|https?:|ftp:)/i', $url)) {
         // note: this is not exact validation, we look for severely malformed URLs only
-        return (bool)preg_match('/^[a-z]+:\/\/([^:@\s]+:[^@\s]+@)?[a-z0-9_\.\-]+(:[0-9]+)?(\/[^#]*)?(#.*)?$/i', $url);
+        return (bool) preg_match('/^[a-z]+:\/\/([^:@\s]+:[^@\s]+@)?[^ @]+(:[0-9]+)?(\/[^#]*)?(#.*)?$/i', $url);
     } else {
         return (bool)preg_match('/^[a-z]+:\/\/...*$/i', $url);
     }
@@ -83,15 +83,28 @@ function url_fix_submitted_url($url) {
  */
 function url_get_full_url($url, $cm, $course, $config=null) {
 
-    $parameters = empty($url->parameters) ? array() : unserialize($url->parameters);
+    $parameters = empty($url->parameters) ? [] : (array) unserialize_array($url->parameters);
 
     // make sure there are no encoded entities, it is ok to do this twice
     $fullurl = html_entity_decode($url->externalurl, ENT_QUOTES, 'UTF-8');
 
+    $letters = '\pL';
+    $latin = 'a-zA-Z';
+    $digits = '0-9';
+    $symbols = '\x{20E3}\x{00AE}\x{00A9}\x{203C}\x{2047}\x{2048}\x{2049}\x{3030}\x{303D}\x{2139}\x{2122}\x{3297}\x{3299}' .
+               '\x{2300}-\x{23FF}\x{2600}-\x{27BF}\x{2B00}-\x{2BF0}';
+    $arabic = '\x{FE00}-\x{FEFF}';
+    $math = '\x{2190}-\x{21FF}\x{2900}-\x{297F}';
+    $othernumbers = '\x{2460}-\x{24FF}';
+    $geometric = '\x{25A0}-\x{25FF}';
+    $emojis = '\x{1F000}-\x{1F6FF}';
+
     if (preg_match('/^(\/|https?:|ftp:)/i', $fullurl) or preg_match('|^/|', $fullurl)) {
         // encode extra chars in URLs - this does not make it always valid, but it helps with some UTF-8 problems
-        $allowed = "a-zA-Z0-9".preg_quote(';/?:@=&$_.+!*(),-#%', '/');
-        $fullurl = preg_replace_callback("/[^$allowed]/", 'url_filter_callback', $fullurl);
+        // Thanks to 💩.la emojis count as valid, too.
+        $allowed = "[" . $letters . $latin . $digits . $symbols . $arabic . $math . $othernumbers . $geometric .
+            $emojis . "]" . preg_quote(';/?:@=&$_.+!*(),-#%', '/');
+        $fullurl = preg_replace_callback("/[^$allowed]/u", 'url_filter_callback', $fullurl);
     } else {
         // encode special chars only
         $fullurl = str_replace('"', '%22', $fullurl);
@@ -182,7 +195,7 @@ function url_print_heading($url, $cm, $course, $notused = false) {
 function url_print_intro($url, $cm, $course, $ignoresettings=false) {
     global $OUTPUT;
 
-    $options = empty($url->displayoptions) ? array() : unserialize($url->displayoptions);
+    $options = empty($url->displayoptions) ? [] : (array) unserialize_array($url->displayoptions);
     if ($ignoresettings or !empty($options['printintro'])) {
         if (trim(strip_tags($url->intro))) {
             echo $OUTPUT->box_start('mod_introbox', 'urlintro');
@@ -264,7 +277,7 @@ function url_print_workaround($url, $cm, $course) {
     $display = url_get_final_display_type($url);
     if ($display == RESOURCELIB_DISPLAY_POPUP) {
         $jsfullurl = addslashes_js($fullurl);
-        $options = empty($url->displayoptions) ? array() : unserialize($url->displayoptions);
+        $options = empty($url->displayoptions) ? [] : (array) unserialize_array($url->displayoptions);
         $width  = empty($options['popupwidth'])  ? 620 : $options['popupwidth'];
         $height = empty($options['popupheight']) ? 450 : $options['popupheight'];
         $wh = "width=$width,height=$height,toolbar=no,location=no,menubar=no,copyhistory=no,status=no,directories=no,scrollbars=yes,resizable=yes";
@@ -354,8 +367,9 @@ function url_get_final_display_type($url) {
         }
     }
 
-    static $download = array('application/zip', 'application/x-tar', 'application/g-zip',     // binary formats
-                             'application/pdf', 'text/html');  // these are known to cause trouble for external links, sorry
+    // Binaries and other formats that are known to cause trouble for external links.
+    static $download = ['application/zip', 'application/x-tar', 'application/g-zip',
+                        'application/pdf', 'text/html', 'document/unknown'];
     static $embed    = array('image/gif', 'image/jpeg', 'image/png', 'image/svg+xml',         // images
                              'application/x-shockwave-flash', 'video/x-flv', 'video/x-ms-wm', // video formats
                              'video/quicktime', 'video/mpeg', 'video/mp4',
@@ -545,6 +559,16 @@ function url_guess_icon($fullurl, $size = null) {
     if (substr_count($fullurl, '/') < 3 or substr($fullurl, -1) === '/') {
         // Most probably default directory - index.php, index.html, etc. Return null because
         // we want to use the default module icon instead of the HTML file icon.
+        return null;
+    }
+
+    try {
+        // There can be some cases where the url is invalid making parse_url() to return false.
+        // That will make moodle_url class to throw an exception, so we need to catch the exception to prevent errors.
+        $moodleurl = new moodle_url($fullurl);
+        $fullurl = $moodleurl->out_omit_querystring();
+    } catch (\moodle_exception $e) {
+        // If an exception is thrown, means the url is invalid. No need to log exception.
         return null;
     }
 

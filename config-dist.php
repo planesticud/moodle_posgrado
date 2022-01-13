@@ -38,7 +38,7 @@ $CFG = new stdClass();
 // will be stored.  This database must already have been created         //
 // and a username/password created to access it.                         //
 
-$CFG->dbtype    = 'pgsql';      // 'pgsql', 'mariadb', 'mysqli', 'sqlsrv' or 'oci'
+$CFG->dbtype    = 'pgsql';      // 'pgsql', 'mariadb', 'mysqli', 'auroramysql', 'sqlsrv' or 'oci'
 $CFG->dblibrary = 'native';     // 'native' only at the moment
 $CFG->dbhost    = 'localhost';  // eg 'localhost' or 'db.isp.com' or IP
 $CFG->dbname    = 'moodle';     // database name, eg moodle
@@ -79,6 +79,45 @@ $CFG->dboptions = array(
                                 // set to zero if you are using pg_bouncer in
                                 // 'transaction' mode (it is fine in 'session'
                                 // mode).
+    /*
+    'connecttimeout' => null, // Set connect timeout in seconds. Not all drivers support it.
+    'readonly' => [          // Set to read-only slave details, to get safe reads
+                             // from there instead of the master node. Optional.
+                             // Currently supported by pgsql and mysqli variety classes.
+                             // If not supported silently ignored.
+      'instance' => [        // Readonly slave connection parameters
+        [
+          'dbhost' => 'slave.dbhost',
+          'dbport' => '',    // Defaults to master port
+          'dbuser' => '',    // Defaults to master user
+          'dbpass' => '',    // Defaults to master password
+        ],
+        [...],
+      ],
+
+    Instance(s) can alternatively be specified as:
+
+      'instance' => 'slave.dbhost',
+      'instance' => ['slave.dbhost1', 'slave.dbhost2'],
+      'instance' => ['dbhost' => 'slave.dbhost', 'dbport' => '', 'dbuser' => '', 'dbpass' => ''],
+
+      'connecttimeout' => 2, // Set read-only slave connect timeout in seconds. See above.
+      'latency' => 0.5,      // Set read-only slave sync latency in seconds.
+                             // When 'latency' seconds have lapsed after an update to a table
+                             // it is deemed safe to use readonly slave for reading from the table.
+                             // It is optional. If omitted once written to a table it will always
+                             // use master handle for reading.
+                             // Lower values increase the performance, but setting it too low means
+                             // missing the master-slave sync.
+      'exclude_tables' => [  // Tables to exclude from read-only slave feature.
+          'table1',          // Should not be used, unless in rare cases when some area of the system
+          'table2',          // is malfunctioning and you still want to use readonly feature.
+      ],                     // Then one can exclude offending tables while investigating.
+
+    More info available in lib/dml/moodle_read_slave_trait.php where the feature is implemented.
+    ]
+     */
+// For all database config settings see https://docs.moodle.org/en/Database_settings
 );
 
 
@@ -280,6 +319,8 @@ $CFG->admin = 'admin';
 //      $CFG->session_redis_prefix = ''; // Optional, default is don't set one.
 //      $CFG->session_redis_acquire_lock_timeout = 120;
 //      $CFG->session_redis_lock_expire = 7200;
+//      $CFG->session_redis_lock_retry = 100; // Optional wait between lock attempts in ms, default is 100.
+//                                            // After 5 seconds it will throttle down to once per second.
 //      Use the igbinary serializer instead of the php default one. Note that phpredis must be compiled with
 //      igbinary support to make the setting to work. Also, if you change the serializer you have to flush the database!
 //      $CFG->session_redis_serializer_use_igbinary = false; // Optional, default is PHP builtin serializer.
@@ -435,6 +476,7 @@ $CFG->admin = 'admin';
 //     $CFG->tempdir = '/var/www/moodle/temp';        // Directory MUST BE SHARED by all cluster nodes.
 //     $CFG->cachedir = '/var/www/moodle/cache';      // Directory MUST BE SHARED by all cluster nodes, locking required.
 //     $CFG->localcachedir = '/var/local/cache';      // Intended for local node caching.
+//     $CFG->localrequestdir = '/tmp';                // Intended for local only temporary files. The defaults uses sys_get_temp_dir().
 //
 // It is possible to specify a different backup temp directory, use local fast filesystem
 // for normal web servers. Server clusters MUST use shared filesystem for backuptempdir!
@@ -521,9 +563,9 @@ $CFG->admin = 'admin';
 //      $CFG->supportuserid = -20;
 //
 // Moodle 2.7 introduces a locking api for critical tasks (e.g. cron).
-// The default locking system to use is DB locking for Postgres, and file locking for
-// MySQL, Oracle and SQLServer. If $CFG->preventfilelocking is set, then the default
-// will always be DB locking. It can be manually set to one of the lock
+// The default locking system to use is DB locking for Postgres, MySQL, MariaDB and
+// file locking for Oracle and SQLServer. If $CFG->preventfilelocking is set, then the
+// default will always be DB locking. It can be manually set to one of the lock
 // factory classes listed below, or one of your own custom classes implementing the
 // \core\lock\lock_factory interface.
 //
@@ -536,6 +578,8 @@ $CFG->admin = 'admin';
 //      works on clusters depends on the file system used for the dataroot.
 //
 // "\\core\\lock\\db_record_lock_factory" - DB locking based on table rows.
+//
+// "\\core\\lock\\mysql_lock_factory" - DB locking based on MySQL / MariaDB locks.
 //
 // "\\core\\lock\\postgres_lock_factory" - DB locking based on postgres advisory locks.
 //
@@ -614,11 +658,24 @@ $CFG->admin = 'admin';
 //
 //      $CFG->expectedcronfrequency = 200;
 //
+// Moodle 3.9+ checks how old tasks are in the ad hoc queue and warns at 10 minutes
+// and errors at 4 hours. Set these to override these limits:
+//
+//      $CFG->adhoctaskagewarn = 10 * 60;
+//      $CFG->adhoctaskageerror = 4 * 60 * 60;
+//
 // Session lock warning threshold. Long running pages should release the session using \core\session\manager::write_close().
 // Set this threshold to any value greater than 0 to add developer warnings when a page locks the session for too long.
 // The session should rarely be locked for more than 1 second. The input should be in seconds and may be a float.
 //
 //      $CFG->debugsessionlock = 5;
+//
+// There are times when a session lock is not required during a request. For a page/service to opt-in whether or not a
+// session lock is required this setting must first be set to 'true'.
+// This is an experimental issue. The session store can not be in the session, please
+// see https://docs.moodle.org/en/Session_handling#Read_only_sessions.
+//
+//      $CFG->enable_read_only_sessions = true;
 //
 // Uninstall plugins from CLI only. This stops admins from uninstalling plugins from the graphical admin
 // user interface, and forces plugins to be uninstalled from the Command Line tool only, found at
@@ -652,6 +709,20 @@ $CFG->admin = 'admin';
 // That default can be overridden by setting an integer value for $CFG->forumpostcountchunksize.
 //
 //      $CFG->forumpostcountchunksize = 5000;
+//
+// Course and category sorting
+//
+// If the number of courses in a category exceeds $CFG->maxcoursesincategory (10000 by default), it may lead to duplicate
+// sort orders of courses in separated categories. For example:
+// - Category A has the sort order of 10000, and has 10000 courses. The last course will have the sort order of 20000.
+// - Category B has the sort order of 20000, and has a course with the sort order of 20001.
+// - If we add another course in category A, it will have a sort order of 20001,
+// which is the same as the course in category B
+// The duplicate will cause sorting issue and hence we need to increase $CFG->maxcoursesincategory
+// to fix the duplicate sort order
+// Please also make sure $CFG->maxcoursesincategory * MAX_COURSE_CATEGORIES less than max integer.
+//
+// $CFG->maxcoursesincategory = 10000;
 //
 //=========================================================================
 // 7. SETTINGS FOR DEVELOPMENT SERVERS - not intended for production use!!!
@@ -727,6 +798,9 @@ $CFG->admin = 'admin';
 // Force developer level debug and add debug info to the output of cron
 // $CFG->showcrondebugging = true;
 //
+// Force result of checks used to determine whether a site is considered "public" or not (such as for site registration).
+// $CFG->site_is_public = false;
+//
 //=========================================================================
 // 8. FORCED SETTINGS
 //=========================================================================
@@ -800,7 +874,7 @@ $CFG->admin = 'admin';
 //           ),
 //           'extensions' => array(
 //               'Behat\MinkExtension' => array(
-//                   'selenium2' => array(
+//                   'webddriver' => array(
 //                       'browser' => 'firefox',
 //                       'capabilities' => array(
 //                           'platform' => 'OS X 10.6',
@@ -813,7 +887,7 @@ $CFG->admin = 'admin';
 //       'Mac-Safari' => array(
 //           'extensions' => array(
 //               'Behat\MinkExtension' => array(
-//                   'selenium2' => array(
+//                   'webddriver' => array(
 //                       'browser' => 'safari',
 //                       'capabilities' => array(
 //                           'platform' => 'OS X 10.8',
@@ -839,13 +913,6 @@ $CFG->admin = 'admin';
 //     ),
 // );
 //
-// You can force the browser session (not user's sessions) to restart after N seconds. This could
-// be useful if you are using a cloud-based service with time restrictions in the browser side.
-// Setting this value the browser session that Behat is using will be restarted. Set the time in
-// seconds. Is not recommended to use this setting if you don't explicitly need it.
-// Example:
-//   $CFG->behat_restart_browser_after = 7200;     // Restarts the browser session after 2 hours
-//
 // All this page's extra Moodle settings are compared against a white list of allowed settings
 // (the basic and behat_* ones) to avoid problems with production environments. This setting can be
 // used to expand the default white list with an array of extra settings.
@@ -862,6 +929,12 @@ $CFG->admin = 'admin';
 // seconds, for instance).
 // Example:
 //   $CFG->behat_increasetimeout = 3;
+//
+// Yon can specify a window size modifier for Behat, which is applied to any window szie changes.
+// For example, if a window size of 640x768 is specified, with a modifier of 2, then the final size is 1280x1536.
+// This is particularly useful for behat reruns to eliminate issues with window sizing.
+// Example:
+//   $CFG->behat_window_size_modifier = 1;
 //
 // Including feature files from directories outside the dirroot is possible if required. The setting
 // requires that the running user has executable permissions on all parent directories in the paths.
@@ -994,6 +1067,27 @@ $CFG->admin = 'admin';
 // alternative system class name that will be auto-loaded by file_storage API.
 //
 //      $CFG->alternative_file_system_class = '\\local_myfilestorage\\file_system';
+//
+//=========================================================================
+// 15. CAMPAIGN CONTENT
+//=========================================================================
+//
+// We have added a campaign content to the notifications page, in case you want to hide that from your site you just
+// need to set showcampaigncontent setting to false.
+//
+//      $CFG->showcampaigncontent = true;
+//
+//=========================================================================
+// 16. ALTERNATIVE CACHE CONFIG SETTINGS
+//=========================================================================
+//
+// Alternative cache config.
+// Since 3.10 it is possible to override the cache_factory class with an alternative caching factory.
+// This overridden factory can provide alternative classes for caching such as cache_config,
+// cache_config_writer and core_cache\local\administration_display_helper.
+// The autoloaded factory class name can be specified to use.
+//
+//      $CFG->alternative_cache_factory_class = 'tool_alternativecache_cache_factory';
 //
 //=========================================================================
 // ALL DONE!  To continue installation, visit your main page with a browser

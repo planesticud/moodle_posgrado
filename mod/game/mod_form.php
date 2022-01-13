@@ -55,7 +55,7 @@ class mod_game_mod_form extends moodleform_mod {
                 throw new moodle_exception('game_error', 'game', 'incorrect game');
             }
         } else {
-            $gamekind = required_param('type', PARAM_ALPHA);
+            $gamekind = optional_param('type', '', PARAM_ALPHA);
         }
 
         // Hidden elements.
@@ -77,7 +77,7 @@ class mod_game_mod_form extends moodleform_mod {
         } else {
             $mform->setType('name', PARAM_CLEAN);
         }
-        if (!isset( $g)) {
+        if (!isset( $g) && $gamekind != '') {
             $mform->setDefault('name', get_string( 'game_'.$gamekind, 'game'));
         }
         $mform->addRule('name', null, 'required', null, 'client');
@@ -674,15 +674,15 @@ class mod_game_mod_form extends moodleform_mod {
         $items = array();
 
         $group = array();
-        $group[] = $mform->createElement('advcheckbox', 'completionpass', null, get_string('completionpass', 'quiz'),
+        $group[] = $mform->createElement('advcheckbox', 'completionpass', null, get_string('completionpass', 'game'),
                 array('group' => 'cpass'));
         $mform->disabledIf('completionpass', 'completionusegrade', 'notchecked');
         $group[] = $mform->createElement('advcheckbox', 'completionattemptsexhausted', null,
                 get_string('completionattemptsexhausted', 'quiz'),
                 array('group' => 'cattempts'));
         $mform->disabledIf('completionattemptsexhausted', 'completionpass', 'notchecked');
-        $mform->addGroup($group, 'completionpassgroup', get_string('completionpass', 'quiz'), ' &nbsp; ', false);
-        $mform->addHelpButton('completionpassgroup', 'completionpass', 'quiz');
+        $mform->addGroup($group, 'completionpassgroup', get_string('completionpass', 'game'), ' &nbsp; ', false);
+        $mform->addHelpButton('completionpassgroup', 'completionpass', 'game');
         $items[] = 'completionpassgroup';
         return $items;
     }

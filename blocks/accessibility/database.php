@@ -15,24 +15,26 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Interacts with the database to save/reset font size settings        (1)
+ * Interacts with the database to save/reset font size settings
  *
  * This file handles all the blocks database interaction. If saving,
  * it will check if the current user already has a saved setting, and
  * create/update it as appropriate. If resetting, it will delete the
  * user's setting from the database. If responding to AJAX, it responds
  * with suitable HTTP error codes. Otherwise, it sets a message to
- * display, and redirects the user back to where they came from.       (2)
+ * display, and redirects the user back to where they came from.
  *
- * @package   block_accessibility                                      (3)
- * @copyright 2009 &copy; Taunton's College                            (4)
+ * @package   block_accessibility
+ * @copyright 2009 &copy; Taunton's College
  * @author Mark Johnson <mark.johnson@taunton.ac.uk>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later (5)
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require_once('../../config.php');
 require_once($CFG->dirroot . '/blocks/accessibility/lib.php');
-require_login();
+
+// Special function to catch exceptions from site policies.
+block_accessibility_require_login();
 
 $op = required_param('op', PARAM_TEXT);
 $size = optional_param('size', false, PARAM_BOOL);
@@ -40,8 +42,9 @@ $scheme = optional_param('scheme', false, PARAM_BOOL);
 $atbar = optional_param('atbar', false, PARAM_BOOL);
 
 if (!accessibility_is_ajax()) {
-    $redirect = required_param('redirect', PARAM_TEXT);
-    $redirecturl = safe_redirect_url($redirect);
+    // If the 'redirect' argument passed in isn't local, set it to the root.
+    $redirect = optional_param('redirect', $CFG->wwwroot, PARAM_LOCALURL) ?: $CFG->wwwroot;
+    $redirecturl = new moodle_url($redirect);
 }
 
 switch ($op) {

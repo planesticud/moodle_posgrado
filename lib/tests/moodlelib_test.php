@@ -523,7 +523,7 @@ class core_moodlelib_testcase extends advanced_testcase {
         $this->assertSame('', clean_param('mod__something', PARAM_COMPONENT));
         $this->assertSame('', clean_param('auth_xx-yy', PARAM_COMPONENT));
         $this->assertSame('', clean_param('_auth_xx', PARAM_COMPONENT));
-        $this->assertSame('', clean_param('a2uth_xx', PARAM_COMPONENT));
+        $this->assertSame('a2uth_xx', clean_param('a2uth_xx', PARAM_COMPONENT));
         $this->assertSame('', clean_param('auth_xx_', PARAM_COMPONENT));
         $this->assertSame('', clean_param('auth_xx.old', PARAM_COMPONENT));
         $this->assertSame('', clean_param('_user', PARAM_COMPONENT));
@@ -2099,45 +2099,50 @@ class core_moodlelib_testcase extends advanced_testcase {
 
         $yes = get_string('yes');
         $yesexpected = 'Yes';
-        $this->assertInternalType('string', $yes);
+        $this->assertIsString($yes);
         $this->assertSame($yesexpected, $yes);
 
         $yes = get_string('yes', 'moodle');
-        $this->assertInternalType('string', $yes);
+        $this->assertIsString($yes);
         $this->assertSame($yesexpected, $yes);
 
         $yes = get_string('yes', 'core');
-        $this->assertInternalType('string', $yes);
+        $this->assertIsString($yes);
         $this->assertSame($yesexpected, $yes);
 
         $yes = get_string('yes', '');
-        $this->assertInternalType('string', $yes);
+        $this->assertIsString($yes);
         $this->assertSame($yesexpected, $yes);
 
         $yes = get_string('yes', null);
-        $this->assertInternalType('string', $yes);
+        $this->assertIsString($yes);
         $this->assertSame($yesexpected, $yes);
 
         $yes = get_string('yes', null, 1);
-        $this->assertInternalType('string', $yes);
+        $this->assertIsString($yes);
         $this->assertSame($yesexpected, $yes);
 
         $days = 1;
         $numdays = get_string('numdays', 'core', '1');
         $numdaysexpected = $days.' days';
-        $this->assertInternalType('string', $numdays);
+        $this->assertIsString($numdays);
         $this->assertSame($numdaysexpected, $numdays);
 
         $yes = get_string('yes', null, null, true);
         $this->assertInstanceOf('lang_string', $yes);
         $this->assertSame($yesexpected, (string)$yes);
 
+        // Test lazy loading (returning lang_string) correctly interpolates 0 being used as args.
+        $numdays = get_string('numdays', 'moodle', 0, true);
+        $this->assertInstanceOf(lang_string::class, $numdays);
+        $this->assertSame('0 days', (string) $numdays);
+
         // Test using a lang_string object as the $a argument for a normal
         // get_string call (returning string).
         $test = new lang_string('yes', null, null, true);
         $testexpected = get_string('numdays', 'core', get_string('yes'));
         $testresult = get_string('numdays', null, $test);
-        $this->assertInternalType('string', $testresult);
+        $this->assertIsString($testresult);
         $this->assertSame($testexpected, $testresult);
 
         // Test using a lang_string object as the $a argument for an object
@@ -2225,12 +2230,10 @@ class core_moodlelib_testcase extends advanced_testcase {
         $COURSE->lang = $originallang;
     }
 
-    /**
-     * @expectedException PHPUnit\Framework\Error\Warning
-     */
     public function test_get_string_limitation() {
         // This is one of the limitations to the lang_string class. It can't be
         // used as a key.
+        $this->expectException(\PHPUnit\Framework\Error\Warning::class);
         $array = array(get_string('yes', null, null, true) => 'yes');
     }
 
@@ -2644,8 +2647,8 @@ class core_moodlelib_testcase extends advanced_testcase {
 
         // Test cache invalidation.
         $cache = cache::make('core', 'config');
-        $this->assertInternalType('array', $cache->get('core'));
-        $this->assertInternalType('array', $cache->get('mod_forum'));
+        $this->assertIsArray($cache->get('core'));
+        $this->assertIsArray($cache->get('mod_forum'));
         set_config('phpunit_test_get_config_1', 'test b');
         $this->assertFalse($cache->get('core'));
         set_config('phpunit_test_get_config_4', 'test c', 'mod_forum');
@@ -2862,10 +2865,12 @@ class core_moodlelib_testcase extends advanced_testcase {
      * the user table and fire event.
      */
     public function test_update_internal_user_password_no_cache() {
+        global $DB;
         $this->resetAfterTest();
 
         $user = $this->getDataGenerator()->create_user(array('auth' => 'cas'));
-        $this->assertEquals(AUTH_PASSWORD_NOT_CACHED, $user->password);
+        $DB->update_record('user', ['id' => $user->id, 'password' => AUTH_PASSWORD_NOT_CACHED]);
+        $user->password = AUTH_PASSWORD_NOT_CACHED;
 
         $sink = $this->redirectEvents();
         update_internal_user_password($user, 'wonkawonka');
@@ -3219,6 +3224,32 @@ class core_moodlelib_testcase extends advanced_testcase {
     }
 
     /**
+     * Test email with custom headers
+     */
+    public function test_send_email_with_custom_header() {
+        global $DB, $CFG;
+        $this->preventResetByRollback();
+        $this->resetAfterTest();
+
+        $touser = $this->getDataGenerator()->create_user();
+        $fromuser = $this->getDataGenerator()->create_user();
+        $fromuser->customheaders = 'X-Custom-Header: foo';
+
+        set_config('allowedemaildomains', 'example.com');
+        set_config('emailheaders', 'X-Fixed-Header: bar');
+
+        $sink = $this->redirectEmails();
+        email_to_user($touser, $fromuser, 'subject', 'message');
+
+        $emails = $sink->get_messages();
+        $this->assertCount(1, $emails);
+        $email = reset($emails);
+        $this->assertStringContainsString('X-Custom-Header: foo', $email->header);
+        $this->assertStringContainsString("X-Fixed-Header: bar", $email->header);
+        $sink->clear();
+    }
+
+    /**
      * A data provider for testing email diversion
      */
     public function diverted_emails_provider() {
@@ -3268,6 +3299,26 @@ class core_moodlelib_testcase extends advanced_testcase {
                     'fred+verp@example.com',
                 ),
                 false,
+            ),
+            'divertsexceptionsnewline' => array(
+                'divertallemailsto' => 'somewhere@elsewhere.com',
+                'divertallemailsexcept' => "@dev.com\nfred(\+.*)?@example.com",
+                array(
+                    'dev1@dev.com',
+                    'fred@example.com',
+                    'fred+verp@example.com',
+                ),
+                false,
+            ),
+            'alsodivertsnewline' => array(
+                'divertallemailsto' => 'somewhere@elsewhere.com',
+                'divertallemailsexcept' => "@dev.com\nfred(\+.*)?@example.com",
+                array(
+                    'foo@example.com',
+                    'test@real.com',
+                    'fred.jones@example.com',
+                ),
+                true,
             ),
         );
     }
@@ -3335,13 +3386,13 @@ class core_moodlelib_testcase extends advanced_testcase {
         $this->assertSame($messagetext, trim($result[0]->body));
         $this->assertSame($user1->email, $result[0]->to);
         $this->assertSame($user2->email, $result[0]->from);
-        $this->assertContains('Content-Type: text/plain', $result[0]->header);
+        $this->assertStringContainsString('Content-Type: text/plain', $result[0]->header);
 
         $this->assertSame($subject2, $result[1]->subject);
-        $this->assertContains($messagetext2, quoted_printable_decode($result[1]->body));
+        $this->assertStringContainsString($messagetext2, quoted_printable_decode($result[1]->body));
         $this->assertSame($user2->email, $result[1]->to);
         $this->assertSame($user1->email, $result[1]->from);
-        $this->assertNotContains('Content-Type: text/plain', $result[1]->header);
+        $this->assertStringNotContainsString('Content-Type: text/plain', $result[1]->header);
 
         email_to_user($user1, $user2, $subject, $messagetext);
         $this->assertDebuggingCalled('Unit tests must not send real emails! Use $this->redirectEmails()');
@@ -3380,8 +3431,8 @@ class core_moodlelib_testcase extends advanced_testcase {
         $this->assertSame(1, $sink->count());
         $result = $sink->get_messages();
         $this->assertCount(1, $result);
-        $this->assertContains('error.txt', $result[0]->body);
-        $this->assertContains('Error in attachment.  User attempted to attach a filename with a unsafe name.', $result[0]->body);
+        $this->assertStringContainsString('error.txt', $result[0]->body);
+        $this->assertStringContainsString('Error in attachment.  User attempted to attach a filename with a unsafe name.', $result[0]->body);
         $sink->close();
     }
 
@@ -3400,6 +3451,9 @@ class core_moodlelib_testcase extends advanced_testcase {
             'dirroot' => [$CFG->dirroot],
             'localcachedir' => [$CFG->localcachedir],
             'tempdir' => [$CFG->tempdir],
+            // Paths within $CFG->localrequestdir.
+            'localrequestdir_request_directory' => [make_request_directory()],
+            'localrequestdir_request_storage_directory' => [get_request_storage_directory()],
             // Pass null to indicate we want to test a path relative to $CFG->dataroot.
             'relative' => [null]
         ];
@@ -3437,8 +3491,8 @@ class core_moodlelib_testcase extends advanced_testcase {
 
         // Verify attachment in message body (attachment is in MIME format, but we can detect some Content fields).
         $messagebody = reset($messages)->body;
-        $this->assertContains('Content-Type: text/plain; name="' . $filename . '"', $messagebody);
-        $this->assertContains('Content-Disposition: attachment; filename=' . $filename, $messagebody);
+        $this->assertStringContainsString('Content-Type: text/plain; name="' . $filename . '"', $messagebody);
+        $this->assertStringContainsString('Content-Disposition: attachment; filename=' . $filename, $messagebody);
 
         // Cleanup.
         unlink($filepath);
@@ -3465,8 +3519,8 @@ class core_moodlelib_testcase extends advanced_testcase {
 
         // Verify attachment not in message body (attachment is in MIME format, but we can detect some Content fields).
         $messagebody = reset($messages)->body;
-        $this->assertNotContains('Content-Type: text/plain; name="' . $filename . '"', $messagebody);
-        $this->assertNotContains('Content-Disposition: attachment; filename=' . $filename, $messagebody);
+        $this->assertStringNotContainsString('Content-Type: text/plain; name="' . $filename . '"', $messagebody);
+        $this->assertStringNotContainsString('Content-Disposition: attachment; filename=' . $filename, $messagebody);
     }
 
     /**
@@ -3594,7 +3648,7 @@ class core_moodlelib_testcase extends advanced_testcase {
         $user = $this->getDataGenerator()->create_user(
             [
                 "username" => $username,
-                "confirmed" => false,
+                "confirmed" => 0,
                 "email" => 'test@example.com',
             ]
         );
@@ -3605,7 +3659,7 @@ class core_moodlelib_testcase extends advanced_testcase {
         $message = array_shift($messages);
         $messagebody = quoted_printable_decode($message->body);
 
-        $this->assertContains($expected, $messagebody);
+        $this->assertStringContainsString($expected, $messagebody);
     }
 
     /**
@@ -3623,7 +3677,7 @@ class core_moodlelib_testcase extends advanced_testcase {
         $user = $this->getDataGenerator()->create_user(
             [
                 "username" => "many_-.@characters@_@-..-..",
-                "confirmed" => false,
+                "confirmed" => 0,
                 "email" => 'test@example.com',
             ]
         );
@@ -3637,7 +3691,7 @@ class core_moodlelib_testcase extends advanced_testcase {
         $messagebody = quoted_printable_decode($message->body);
 
         $sink->close();
-        $this->assertContains($expected, $messagebody);
+        $this->assertStringContainsString($expected, $messagebody);
 
         $CFG->admin = $admin;
     }
@@ -3743,39 +3797,85 @@ class core_moodlelib_testcase extends advanced_testcase {
     }
 
     /**
-     * Test function count_words().
+     * Test function {@see count_words()}.
+     *
+     * @dataProvider count_words_testcases
+     * @param int $expectedcount number of words in $string.
+     * @param string $string the test string to count the words of.
      */
-    public function test_count_words() {
-        $count = count_words("one two three'four");
-        $this->assertEquals(3, $count);
-
-        $count = count_words('one+two three’four');
-        $this->assertEquals(3, $count);
-
-        $count = count_words('one"two three-four');
-        $this->assertEquals(2, $count);
-
-        $count = count_words('one@two three_four');
-        $this->assertEquals(4, $count);
-
-        $count = count_words('one\two three/four');
-        $this->assertEquals(4, $count);
-
-        $count = count_words(' one ... two &nbsp; three...four ');
-        $this->assertEquals(4, $count);
-
-        $count = count_words('one.2 3,four');
-        $this->assertEquals(4, $count);
-
-        $count = count_words('1³ £2 €3.45 $6,789');
-        $this->assertEquals(4, $count);
-
-        $count = count_words('one—two ブルース カンベッル');
-        $this->assertEquals(4, $count);
-
-        $count = count_words('one…two ブルース … カンベッル');
-        $this->assertEquals(4, $count);
+    public function test_count_words(int $expectedcount, string $string): void {
+        $this->assertEquals($expectedcount, count_words($string));
     }
+
+    /**
+     * Data provider for {@see test_count_words}.
+     *
+     * @return array of test cases.
+     */
+    public function count_words_testcases(): array {
+        // The counts here should match MS Word and Libre Office.
+        return [
+            [0, ''],
+            [4, 'one two three four'],
+            [1, "a'b"],
+            [1, '1+1=2'],
+            [1, ' one-sided '],
+            [2, 'one&nbsp;two'],
+            [1, 'email@example.com'],
+            [2, 'first\part second/part'],
+            [4, '<p>one two<br></br>three four</p>'],
+            [4, '<p>one two<br>three four</p>'],
+            [4, '<p>one two<br />three four</p>'], // XHTML style.
+            [3, ' one ... three '],
+            [1, 'just...one'],
+            [3, ' one & three '],
+            [1, 'just&one'],
+            [2, 'em—dash'],
+            [2, 'en–dash'],
+            [4, '1³ £2 €3.45 $6,789'],
+            [2, 'ブルース カンベッル'], // MS word counts this as 11, but we don't handle that yet.
+            [4, '<p>one two</p><p>three four</p>'],
+            [4, '<p>one two</p><p><br/></p><p>three four</p>'],
+            [4, '<p>one</p><ul><li>two</li><li>three</li></ul><p>four.</p>'],
+            [1, '<p>em<b>phas</b>is.</p>'],
+            [1, '<p>em<i>phas</i>is.</p>'],
+            [1, '<p>em<strong>phas</strong>is.</p>'],
+            [1, '<p>em<em>phas</em>is.</p>'],
+            [2, "one\ntwo"],
+            [2, "one\rtwo"],
+            [2, "one\ttwo"],
+            [2, "one\vtwo"],
+            [2, "one\ftwo"],
+            [1, "SO<sub>4</sub><sup>2-</sup>"],
+            [6, '4+4=8 i.e. O(1) a,b,c,d I’m black&blue_really'],
+        ];
+    }
+
+    /**
+     * Test function {@see count_letters()}.
+     *
+     * @dataProvider count_letters_testcases
+     * @param int $expectedcount number of characters in $string.
+     * @param string $string the test string to count the letters of.
+     */
+    public function test_count_letters(int $expectedcount, string $string): void {
+        $this->assertEquals($expectedcount, count_letters($string));
+    }
+
+    /**
+     * Data provider for {@see count_letters_testcases}.
+     *
+     * @return array of test cases.
+     */
+    public function count_letters_testcases(): array {
+        return [
+            [0, ''],
+            [1, 'x'],
+            [1, '&amp;'],
+            [4, '<p>frog</p>'],
+        ];
+    }
+
     /**
      * Tests the getremoteaddr() function.
      */
@@ -3783,6 +3883,49 @@ class core_moodlelib_testcase extends advanced_testcase {
         global $CFG;
 
         $this->resetAfterTest();
+
+        $CFG->getremoteaddrconf = null; // Use default value, GETREMOTEADDR_SKIP_DEFAULT.
+        $noip = getremoteaddr('1.1.1.1');
+        $this->assertEquals('1.1.1.1', $noip);
+
+        $remoteaddr = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : null;
+        $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
+        $singleip = getremoteaddr();
+        $this->assertEquals('127.0.0.1', $singleip);
+
+        $_SERVER['REMOTE_ADDR'] = $remoteaddr; // Restore server value.
+
+        $CFG->getremoteaddrconf = 0; // Don't skip any source.
+        $noip = getremoteaddr('1.1.1.1');
+        $this->assertEquals('1.1.1.1', $noip);
+
+        // Populate all $_SERVER values to review order.
+        $ipsources = [
+            'HTTP_CLIENT_IP' => '2.2.2.2',
+            'HTTP_X_FORWARDED_FOR' => '3.3.3.3',
+            'REMOTE_ADDR' => '4.4.4.4',
+        ];
+        $originalvalues = [];
+        foreach ($ipsources as $source => $ip) {
+            $originalvalues[$source] = isset($_SERVER[$source]) ? $_SERVER[$source] : null; // Saving data to restore later.
+            $_SERVER[$source] = $ip;
+        }
+
+        foreach ($ipsources as $source => $expectedip) {
+            $ip = getremoteaddr();
+            $this->assertEquals($expectedip, $ip);
+            unset($_SERVER[$source]); // Removing the value so next time we get the following ip.
+        }
+
+        // Restore server values.
+        foreach ($originalvalues as $source => $ip) {
+            $_SERVER[$source] = $ip;
+        }
+
+        // All $_SERVER values have been removed, we should get the default again.
+        $noip = getremoteaddr('1.1.1.1');
+        $this->assertEquals('1.1.1.1', $noip);
+
         $CFG->getremoteaddrconf = GETREMOTEADDR_SKIP_HTTP_CLIENT_IP;
         $xforwardedfor = isset($_SERVER['HTTP_X_FORWARDED_FOR']) ? $_SERVER['HTTP_X_FORWARDED_FOR'] : null;
 
@@ -3911,7 +4054,7 @@ class core_moodlelib_testcase extends advanced_testcase {
         $this->assertRegExp('/^[' . $pool . ']+$/', $result);
 
         $result = complex_random_string();
-        $this->assertEquals(28, strlen($result), '', 4); // Expected length is 24 - 32.
+        $this->assertEqualsWithDelta(28, strlen($result), 4); // Expected length is 24 - 32.
         $this->assertRegExp('/^[' . $pool . ']+$/', $result);
 
         $this->assertDebuggingNotCalled();
@@ -4323,6 +4466,29 @@ class core_moodlelib_testcase extends advanced_testcase {
     }
 
     /**
+     * Test method for safely unserializing a serialized object of type stdClass
+     */
+    public function test_unserialize_object(): void {
+        $object = (object) [
+            'foo' => 42,
+            'bar' => 'Hamster',
+            'innerobject' => (object) [
+                'baz' => 'happy',
+            ],
+        ];
+
+        // We should get back the same object we serialized.
+        $serializedobject = serialize($object);
+        $this->assertEquals($object, unserialize_object($serializedobject));
+
+        // Try serializing a different class, not allowed.
+        $langstr = new lang_string('no');
+        $serializedlangstr = serialize($langstr);
+        $unserializedlangstr = unserialize_object($serializedlangstr);
+        $this->assertInstanceOf(stdClass::class, $unserializedlangstr);
+    }
+
+    /**
      * Test that the component_class_callback returns the correct default value when the class was not found.
      *
      * @dataProvider component_class_callback_default_provider
@@ -4604,7 +4770,7 @@ class core_moodlelib_testcase extends advanced_testcase {
         $result = $sink->get_messages();
         $sink->close();
 
-        $this->assertContains('passwords cannot be reset on this site', quoted_printable_decode($result[0]->body));
+        $this->assertStringContainsString('passwords cannot be reset on this site', quoted_printable_decode($result[0]->body));
     }
 
     /**
@@ -4684,5 +4850,109 @@ class core_moodlelib_testcase extends advanced_testcase {
                 'expected' => '+0days 0hours 0mins'
             ],
         ];
+    }
+
+    /**
+     * Tests the rename_to_unused_name function with a file.
+     */
+    public function test_rename_to_unused_name_file() {
+        global $CFG;
+
+        // Create a new file in dataroot.
+        $file = $CFG->dataroot . '/argh.txt';
+        file_put_contents($file, 'Frogs');
+
+        // Rename it.
+        $newname = rename_to_unused_name($file);
+
+        // Check new name has expected format.
+        $this->assertRegExp('~/_temp_[a-f0-9]+$~', $newname);
+
+        // Check it's still in the same folder.
+        $this->assertEquals($CFG->dataroot, dirname($newname));
+
+        // Check file can be loaded.
+        $this->assertEquals('Frogs', file_get_contents($newname));
+
+        // OK, delete the file.
+        unlink($newname);
+    }
+
+    /**
+     * Tests the rename_to_unused_name function with a directory.
+     */
+    public function test_rename_to_unused_name_dir() {
+        global $CFG;
+
+        // Create a new directory in dataroot.
+        $file = $CFG->dataroot . '/arghdir';
+        mkdir($file);
+
+        // Rename it.
+        $newname = rename_to_unused_name($file);
+
+        // Check new name has expected format.
+        $this->assertRegExp('~/_temp_[a-f0-9]+$~', $newname);
+
+        // Check it's still in the same folder.
+        $this->assertEquals($CFG->dataroot, dirname($newname));
+
+        // Check it's still a directory
+        $this->assertTrue(is_dir($newname));
+
+        // OK, delete the directory.
+        rmdir($newname);
+    }
+
+    /**
+     * Tests the rename_to_unused_name function with error cases.
+     */
+    public function test_rename_to_unused_name_failure() {
+        global $CFG;
+
+        // Rename a file that doesn't exist.
+        $file = $CFG->dataroot . '/argh.txt';
+        $this->assertFalse(rename_to_unused_name($file));
+    }
+
+    /**
+     * Provider for display_size
+     *
+     * @return array of ($size, $expected)
+     */
+    public function display_size_provider() {
+
+        return [
+            [0,     '0 bytes'    ],
+            [1,     '1 bytes'    ],
+            [1023,  '1023 bytes' ],
+            [1024,      '1KB'    ],
+            [2222,      '2.2KB'  ],
+            [33333,     '32.6KB' ],
+            [444444,    '434KB'  ],
+            [5555555,       '5.3MB'  ],
+            [66666666,      '63.6MB' ],
+            [777777777,     '741.7MB'],
+            [8888888888,        '8.3GB'  ],
+            [99999999999,       '93.1GB' ],
+            [111111111111,      '103.5GB'],
+            [2222222222222,         '2TB'    ],
+            [33333333333333,        '30.3TB' ],
+            [444444444444444,       '404.2TB'],
+            [5555555555555555,          '4.9PB'  ],
+            [66666666666666666,         '59.2PB' ],
+            [777777777777777777,        '690.8PB'],
+        ];
+    }
+
+    /**
+     * Test display_size
+     * @dataProvider display_size_provider
+     * @param int $size the size in bytes
+     * @param string $expected the expected string.
+     */
+    public function test_display_size($size, $expected) {
+        $result = display_size($size);
+        $this->assertEquals($expected, $result);
     }
 }

@@ -40,6 +40,9 @@ class restore_quiz_activity_structure_step extends restore_questions_activity_st
      */
     protected $sectioncreated = false;
 
+    /** @var stdClass|null $currentquizattempt Track the current quiz attempt being restored. */
+    protected $currentquizattempt = null;
+
     /**
      * @var bool when restoring old quizzes (2.8 or before) this records the
      * shufflequestionsoption quiz option which has moved to the quiz_sections table.
@@ -97,7 +100,7 @@ class restore_quiz_activity_structure_step extends restore_questions_activity_st
     }
 
     protected function process_quiz($data) {
-        global $CFG, $DB;
+        global $CFG, $DB, $USER;
 
         $data = (object)$data;
         $oldid = $data->id;
@@ -231,11 +234,17 @@ class restore_quiz_activity_structure_step extends restore_questions_activity_st
             } else if ($data->popup == 1) {
                 $data->browsersecurity = 'securewindow';
             } else if ($data->popup == 2) {
-                $data->browsersecurity = 'safebrowser';
+                // Since 3.9 quizaccess_safebrowser replaced with a new quizaccess_seb.
+                $data->browsersecurity = '-';
+                $addsebrule = true;
             } else {
                 $data->preferredbehaviour = '-';
             }
             unset($data->popup);
+        } else if ($data->browsersecurity == 'safebrowser') {
+            // Since 3.9 quizaccess_safebrowser replaced with a new quizaccess_seb.
+            $data->browsersecurity = '-';
+            $addsebrule = true;
         }
 
         if (!isset($data->overduehandling)) {
@@ -250,6 +259,42 @@ class restore_quiz_activity_structure_step extends restore_questions_activity_st
         $newitemid = $DB->insert_record('quiz', $data);
         // Immediately after inserting "activity" record, call this.
         $this->apply_activity_instance($newitemid);
+
+        // Process Safe Exam Browser settings for backups taken in Moodle < 3.9.
+        if (!empty($addsebrule)) {
+            $sebsettings = new stdClass();
+
+            $sebsettings->quizid = $newitemid;
+            $sebsettings->cmid = $this->task->get_moduleid();
+            $sebsettings->templateid = 0;
+            $sebsettings->requiresafeexambrowser = \quizaccess_seb\settings_provider::USE_SEB_CLIENT_CONFIG;
+            $sebsettings->showsebtaskbar = null;
+            $sebsettings->showwificontrol = null;
+            $sebsettings->showreloadbutton = null;
+            $sebsettings->showtime = null;
+            $sebsettings->showkeyboardlayout = null;
+            $sebsettings->allowuserquitseb = null;
+            $sebsettings->quitpassword = null;
+            $sebsettings->linkquitseb = null;
+            $sebsettings->userconfirmquit = null;
+            $sebsettings->enableaudiocontrol = null;
+            $sebsettings->muteonstartup = null;
+            $sebsettings->allowspellchecking = null;
+            $sebsettings->allowreloadinexam = null;
+            $sebsettings->activateurlfiltering = null;
+            $sebsettings->filterembeddedcontent = null;
+            $sebsettings->expressionsallowed = null;
+            $sebsettings->regexallowed = null;
+            $sebsettings->expressionsblocked = null;
+            $sebsettings->regexblocked = null;
+            $sebsettings->allowedbrowserexamkeys = null;
+            $sebsettings->showsebdownloadlink = 1;
+            $sebsettings->usermodified = $USER->id;
+            $sebsettings->timecreated = time();
+            $sebsettings->timemodified = time();
+
+            $DB->insert_record('quizaccess_seb_quizsettings', $sebsettings);
+        }
     }
 
     protected function process_quiz_question_instance($data) {
@@ -411,7 +456,16 @@ class restore_quiz_activity_structure_step extends restore_questions_activity_st
         $data->quiz = $this->get_new_parentid('quiz');
         $data->attempt = $data->attemptnum;
 
-        $data->userid = $this->get_mappingid('user', $data->userid);
+        // Get user mapping, return early if no mapping found for the quiz attempt.
+        $olduserid = $data->userid;
+        $data->userid = $this->get_mappingid('user', $olduserid, 0);
+        if ($data->userid === 0) {
+            $this->log('Mapped user ID not found for user ' . $olduserid . ', quiz ' . $this->get_new_parentid('quiz') .
+                ', attempt ' . $data->attempt . '. Skipping quiz attempt', backup::LOG_INFO);
+
+            $this->currentquizattempt = null;
+            return;
+        }
 
         if (!empty($data->timecheckstate)) {
             $data->timecheckstate = $this->apply_date_offset($data->timecheckstate);
@@ -446,6 +500,9 @@ class restore_quiz_activity_structure_step extends restore_questions_activity_st
         global $DB;
 
         $data = $this->currentquizattempt;
+        if ($data === null) {
+            return;
+        }
 
         $oldid = $data->id;
         $data->uniqueid = $newusageid;

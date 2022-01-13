@@ -266,7 +266,6 @@ function game_millionaire_showgrid( $game, $millionaire, $id, $query, $aanswer, 
         }
     }
     echo "<tr $background><td colspan=10>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>\r\n";
-
     $bfirst = true;
     $letters = get_string( 'millionaire_lettersall', 'game');
     if (($letters == '') or ($letters == '-')) {
@@ -282,7 +281,7 @@ function game_millionaire_showgrid( $game, $millionaire, $id, $query, $aanswer, 
         if ((strpos( $aanswer[ $i - 1], 'color:') != false) or (strpos( $aanswer[ $i - 1], 'background:') != false)) {
             $style = '';
         }
-        if ($state == 15 and $i + 1 == $query->correct) {
+        if ($state == 15 and $i == $query->correct) {
             $style = $stylequestionselected;
         }
 
@@ -412,7 +411,7 @@ function game_millionaire_selectquestion( &$aanswer, $game, $attempt, &$milliona
     if ($game->shuffle or $game->quizid == 0) {
         $questionid = game_question_selectrandom( $game, $table, $select, 'q.id as id', true);
     } else {
-        $questionid = game_millionaire_select_serial_question( $game, $table, $select, 'q.id as id', $millionaire->level, $order);
+        $questionid = game_millionaire_select_serial_question($game, $table, $select, $millionaire->level, $order, 'q.id as id');
     }
 
     if ($questionid == 0) {
@@ -482,11 +481,11 @@ function game_millionaire_selectquestion( &$aanswer, $game, $attempt, &$milliona
  * @param stdClass $game
  * @param string $table
  * @param string $select
- * @param string $idfields
  * @param int $level
  * @param string $order
+ * @param string $idfields
  */
-function game_millionaire_select_serial_question( $game, $table, $select, $idfields = "id", $level, $order) {
+function game_millionaire_select_serial_question($game, $table, $select, $level, $order, $idfields = "id") {
     global $DB, $USER;
 
     $sql  = "SELECT $idfields,$idfields FROM ".$table." WHERE $select ";

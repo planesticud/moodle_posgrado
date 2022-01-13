@@ -1,18 +1,17 @@
 define(['jquery', 'mod_mindmap/mindmap'],
     function ($, Mindmap) {
         return {
-            Init: function (mindmapid, locked, convert, lang, strings) {
+            Init: function (mindmapid, locked, lang, strings) {
                 var mindmapdata;
                 $.ajax({
                     async: false,
-                    url: "mindmapdata.php?id=" + mindmapid + "&convert=" + convert,
+                    url: "mindmapdata.php?id=" + mindmapid,
                     success: function (result) {
                         mindmapdata = result; // Load mindmap data
                     }
                 });
 
                 // Languages support.
-                var default_supported_locales = ['en', 'de', 'es', 'it', 'fr', 'cz', 'nl', 'ru', 'cn', 'ua'];
                 var local_locales = {
                     custom: {
                         edit: strings.visjsedit,
@@ -308,19 +307,10 @@ define(['jquery', 'mod_mindmap/mindmap'],
                             labelHighlightBold: false
                         }
                     };
-                    if (convert == 1) {
-                        $('#export_button').on('click', function () {
-                            exportNetwork();
-                        });
-                    }
                 }
 
-                if ($.inArray(lang, default_supported_locales) != -1) {
-                    options['locale'] = lang;
-                } else {
-                    options['locales'] = local_locales;
-                    options['locale'] = 'custom';
-                }
+                options['locales'] = local_locales;
+                options['locale'] = 'custom';
 
                 network = new vis.Network(container, data, options);
 

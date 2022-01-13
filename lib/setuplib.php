@@ -362,6 +362,10 @@ function default_exception_handler($ex) {
 
     $info = get_exception_info($ex);
 
+    // If we already tried to send the header remove it, the content length
+    // should be either empty or the length of the error page.
+    @header_remove('Content-Length');
+
     if (is_early_init($info->backtrace)) {
         echo bootstrap_renderer::early_error($info->message, $info->moreinfourl, $info->link, $info->backtrace, $info->debuginfo, $info->errorcode);
     } else {
@@ -547,7 +551,7 @@ function get_exception_info($ex) {
     // Remove some absolute paths from message and debugging info.
     $searches = array();
     $replaces = array();
-    $cfgnames = array('tempdir', 'cachedir', 'localcachedir', 'themedir', 'dataroot', 'dirroot');
+    $cfgnames = array('backuptempdir', 'tempdir', 'cachedir', 'localcachedir', 'themedir', 'dataroot', 'dirroot');
     foreach ($cfgnames as $cfgname) {
         if (property_exists($CFG, $cfgname)) {
             $searches[] = $CFG->$cfgname;
@@ -894,9 +898,10 @@ function initialise_fullme() {
         $_SERVER['SERVER_PORT'] = 443; // Assume default ssl port for the proxy.
     }
 
-    // hopefully this will stop all those "clever" admins trying to set up moodle
-    // with two different addresses in intranet and Internet
-    if (!empty($CFG->reverseproxy) && $rurl['host'] === $wwwroot['host']) {
+    // Hopefully this will stop all those "clever" admins trying to set up moodle
+    // with two different addresses in intranet and Internet.
+    // Port forwarding is still allowed!
+    if (!empty($CFG->reverseproxy) && $rurl['host'] === $wwwroot['host'] && (empty($wwwroot['port']) || $rurl['port'] === $wwwroot['port'])) {
         print_error('reverseproxyabused', 'error');
     }
 
@@ -947,7 +952,7 @@ function setup_get_remote_url() {
     } else {
         $rurl['host'] = null;
     }
-    $rurl['port'] = $_SERVER['SERVER_PORT'];
+    $rurl['port'] = (int)$_SERVER['SERVER_PORT'];
     $rurl['path'] = $_SERVER['SCRIPT_NAME']; // Script path without slash arguments
     $rurl['scheme'] = (empty($_SERVER['HTTPS']) or $_SERVER['HTTPS'] === 'off' or $_SERVER['HTTPS'] === 'Off' or $_SERVER['HTTPS'] === 'OFF') ? 'http' : 'https';
 
@@ -1321,17 +1326,19 @@ function get_real_size($size = 0) {
     }
 
     static $binaryprefixes = array(
-        'K' => 1024,
-        'k' => 1024,
-        'M' => 1048576,
-        'm' => 1048576,
-        'G' => 1073741824,
-        'g' => 1073741824,
-        'T' => 1099511627776,
-        't' => 1099511627776,
+        'K' => 1024 ** 1,
+        'k' => 1024 ** 1,
+        'M' => 1024 ** 2,
+        'm' => 1024 ** 2,
+        'G' => 1024 ** 3,
+        'g' => 1024 ** 3,
+        'T' => 1024 ** 4,
+        't' => 1024 ** 4,
+        'P' => 1024 ** 5,
+        'p' => 1024 ** 5,
     );
 
-    if (preg_match('/^([0-9]+)([KMGT])/i', $size, $matches)) {
+    if (preg_match('/^([0-9]+)([KMGTP])/i', $size, $matches)) {
         return $matches[1] * $binaryprefixes[$matches[2]];
     }
 
@@ -1492,8 +1499,9 @@ function make_unique_writable_directory($basedir, $exceptiononerror = true) {
     }
 
     do {
-        // Generate a new (hopefully unique) directory name.
-        $uniquedir = $basedir . DIRECTORY_SEPARATOR . \core\uuid::generate();
+        // Let's use uniqid() because it's "unique enough" (microtime based). The loop does handle repetitions.
+        // Windows and old PHP don't like very long paths, so try to keep this shorter. See MDL-69975.
+        $uniquedir = $basedir . DIRECTORY_SEPARATOR . uniqid();
     } while (
             // Ensure that basedir is still writable - if we do not check, we could get stuck in a loop here.
             is_writable($basedir) &&
@@ -1629,14 +1637,16 @@ function get_request_storage_directory($exceptiononerror = true, bool $forcecrea
     $createnewdirectory = $forcecreate || !$writabledirectoryexists;
 
     if ($createnewdirectory) {
-        if ($CFG->localcachedir !== "$CFG->dataroot/localcache") {
-            check_dir_exists($CFG->localcachedir, true, true);
-            protect_directory($CFG->localcachedir);
-        } else {
-            protect_directory($CFG->dataroot);
-        }
 
-        if ($dir = make_unique_writable_directory($CFG->localcachedir, $exceptiononerror)) {
+        // Let's add the first chars of siteidentifier only. This is to help separate
+        // paths on systems which host multiple moodles. We don't use the full id
+        // as Windows and old PHP don't like very long paths. See MDL-69975.
+        $basedir = $CFG->localrequestdir . '/' . substr($CFG->siteidentifier, 0, 4);
+
+        make_writable_directory($basedir);
+        protect_directory($basedir);
+
+        if ($dir = make_unique_writable_directory($basedir, $exceptiononerror)) {
             // Register a shutdown handler to remove the directory.
             \core_shutdown_manager::register_function('remove_dir', [$dir]);
         }
@@ -1964,11 +1974,7 @@ class bootstrap_renderer {
     public static function early_error_content($message, $moreinfourl, $link, $backtrace, $debuginfo = null) {
         global $CFG;
 
-        $content = '<div style="margin-top: 6em; margin-left:auto; margin-right:auto; color:#990000; text-align:center; font-size:large; border-width:1px;
-border-color:black; background-color:#ffffee; border-style:solid; border-radius: 20px; border-collapse: collapse;
-width: 80%; -moz-border-radius: 20px; padding: 15px">
-' . $message . '
-</div>';
+        $content = "<div class='alert-danger'>$message</div>";
         // Check whether debug is set.
         $debug = (!empty($CFG->debug) && $CFG->debug >= DEBUG_DEVELOPER);
         // Also check we have it set in the config file. This occurs if the method to read the config table from the
@@ -2113,6 +2119,8 @@ width: 80%; -moz-border-radius: 20px; padding: 15px">
      * @return string html page
      */
     public static function plain_page($title, $content, $meta = '') {
+        global $CFG;
+
         if (function_exists('get_string') && function_exists('get_html_lang')) {
             $htmllang = get_html_lang();
         } else {
@@ -2127,12 +2135,11 @@ width: 80%; -moz-border-radius: 20px; padding: 15px">
             }
         }
 
-        return '<!DOCTYPE html>
-<html ' . $htmllang . '>
-<head>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-'.$meta.'
-<title>' . $title . '</title>
-</head><body>' . $content . $footer . '</body></html>';
+        ob_start();
+        include($CFG->dirroot . '/error/plainpage.php');
+        $html = ob_get_contents();
+        ob_end_clean();
+
+        return $html;
     }
 }

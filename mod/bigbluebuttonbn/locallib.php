@@ -706,11 +706,15 @@ function bigbluebuttonbn_get_users_select(context_course $context, $bbactivity =
             $users += (array) get_enrolled_users($context, '', $g->id, 'u.*', null, 0, 0, true);
         }
     }
-    return array_map(
-            function($u) {
-                return array('id' => $u->id, 'name' => fullname($u));
-            },
-            $users);
+    $userselect = array_map(
+        function($u) {
+            return array('id' => $u->id, 'name' => fullname($u));
+        },
+        $users);
+    uasort($userselect, function($u1, $u2) {
+        return strnatcmp($u1["name"], $u2["name"]);
+    });
+    return $userselect;
 }
 
 /**
@@ -761,7 +765,9 @@ function bigbluebuttonbn_get_roles_select(context $context = null, bool $onlyvie
             $roles[$key] = array('id' => $value->id, 'name' => $value->localname);
         }
     }
-
+    uasort($roles, function($r1, $r2) {
+        return strnatcmp($r1["name"], $r2["name"]);
+    });
     return $roles;
 }
 
@@ -1706,7 +1712,8 @@ function bigbluebuttonbn_get_recording_data_row_type($recording, $bbbsession, $p
         'data-target' => $playback['type'],
         'data-href' => $href,
       );
-    if ($CFG->bigbluebuttonbn_recordings_validate_url && !bigbluebuttonbn_is_bn_server()
+    if (!isset($recording['protected'])
+            && $CFG->bigbluebuttonbn_recordings_validate_url
             && !bigbluebuttonbn_is_valid_resource(trim($playback['url']))) {
         $linkattributes['class'] = 'btn btn-sm btn-warning';
         $linkattributes['title'] = get_string('view_recording_format_errror_unreachable', 'bigbluebuttonbn');

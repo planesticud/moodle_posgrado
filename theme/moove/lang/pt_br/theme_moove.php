@@ -43,7 +43,8 @@ $string['madeby'] = 'Feito com';
 $string['by'] = 'por';
 $string['discipline_progress'] = 'Progresso';
 $string['access'] = 'Acessar';
-$string['cachedef_admininfos'] = 'Informações da página inicial dos administradores';
+$string['cachedef_admininfos'] = 'Definição do cache das informações do painel do administrador';
+$string['cachedef_fontawesomemooveiconmapping'] = 'Definição de cache dos ícones do tema';
 $string['diskusage'] = 'Uso do disco(moodledata)';
 $string['notcalculatedyet'] = 'Não calculado';
 $string['calculatediskusagetask'] = 'Tarefa para calcular o uso do disco';
@@ -220,8 +221,6 @@ $string['whatsapp'] = 'Whatsapp';
 $string['whatsappdesc'] = 'Digite o número do seu whatsapp para contato.';
 $string['topfooterimg'] = 'Imagem do rodapé';
 $string['topfooterimgdesc'] = 'Envie sua própria imagem de rodapé caso queira substituir a imagem padrão. Tamanho recomendado 1500px x 400px ou maior.';
-$string['disablebottomfooter'] = 'Desabilitar rodapé do final da página';
-$string['disablebottomfooterdesc'] = 'Esta opção desabilita o rodapé laranja do final da página';
 
 // Forum settings tab.
 $string['forumsettings'] = 'Fórum';

@@ -766,7 +766,7 @@ function forum_print_recent_activity($course, $viewfullnames, $timestart) {
         return false;
     }
 
-    echo $OUTPUT->heading(get_string('newforumposts', 'forum').':', 3);
+    echo $OUTPUT->heading(get_string('newforumposts', 'forum') . ':', 6);
     $list = html_writer::start_tag('ul', ['class' => 'unlist']);
 
     foreach ($printposts as $post) {
@@ -808,12 +808,12 @@ function forum_print_recent_activity($course, $viewfullnames, $timestart) {
 function forum_update_grades($forum, $userid = 0): void {
     global $CFG, $DB;
     require_once($CFG->libdir.'/gradelib.php');
-    $cm = get_coursemodule_from_instance('forum', $forum->id);
-    $forum->cmidnumber = $cm->idnumber;
 
     $ratings = null;
     if ($forum->assessed) {
         require_once($CFG->dirroot.'/rating/lib.php');
+
+        $cm = get_coursemodule_from_instance('forum', $forum->id);
 
         $rm = new rating_manager();
         $ratings = $rm->get_user_grades((object) [
@@ -954,7 +954,7 @@ function forum_scale_used_anywhere(int $scaleid): bool {
         return false;
     }
 
-    return $DB->record_exists('forum', ['scale' => $scaleid * -1]);
+    return $DB->record_exists_select('forum', "scale = ? and assessed > 0", [$scaleid * -1]);
 }
 
 // SQL FUNCTIONS ///////////////////////////////////////////////////////////
@@ -4561,14 +4561,28 @@ function forum_tp_is_post_old($post, $time=null) {
 function forum_tp_get_course_unread_posts($userid, $courseid) {
     global $CFG, $DB;
 
-    $now = floor(time() / 60) * 60; // DB cache friendliness.
-    $cutoffdate = $now - ($CFG->forum_oldpostdays * 24 * 60 * 60);
-    $params = array($userid, $userid, $courseid, $cutoffdate, $userid);
+    $modinfo = get_fast_modinfo($courseid);
+    $forumcms = $modinfo->get_instances_of('forum');
+    if (empty($forumcms)) {
+        // Return early if the course doesn't have any forum. Will save us a DB query.
+        return [];
+    }
+
+    $now = floor(time() / MINSECS) * MINSECS; // DB cache friendliness.
+    $cutoffdate = $now - ($CFG->forum_oldpostdays * DAYSECS);
+    $params = [
+        'privatereplyto' => $userid,
+        'modified' => $cutoffdate,
+        'readuserid' => $userid,
+        'trackprefsuser' => $userid,
+        'courseid' => $courseid,
+        'trackforumuser' => $userid,
+    ];
 
     if (!empty($CFG->forum_enabletimedposts)) {
-        $timedsql = "AND d.timestart < ? AND (d.timeend = 0 OR d.timeend > ?)";
-        $params[] = $now;
-        $params[] = $now;
+        $timedsql = "AND d.timestart < :timestart AND (d.timeend = 0 OR d.timeend > :timeend)";
+        $params['timestart'] = $now;
+        $params['timeend'] = $now;
     } else {
         $timedsql = "";
     }
@@ -4576,31 +4590,65 @@ function forum_tp_get_course_unread_posts($userid, $courseid) {
     if ($CFG->forum_allowforcedreadtracking) {
         $trackingsql = "AND (f.trackingtype = ".FORUM_TRACKING_FORCED."
                             OR (f.trackingtype = ".FORUM_TRACKING_OPTIONAL." AND tf.id IS NULL
-                                AND (SELECT trackforums FROM {user} WHERE id = ?) = 1))";
+                                AND (SELECT trackforums FROM {user} WHERE id = :trackforumuser) = 1))";
     } else {
         $trackingsql = "AND ((f.trackingtype = ".FORUM_TRACKING_OPTIONAL." OR f.trackingtype = ".FORUM_TRACKING_FORCED.")
                             AND tf.id IS NULL
-                            AND (SELECT trackforums FROM {user} WHERE id = ?) = 1)";
+                            AND (SELECT trackforums FROM {user} WHERE id = :trackforumuser) = 1)";
     }
 
-    $sql = "SELECT f.id, COUNT(p.id) AS unread
-              FROM {forum_posts} p
+    $sql = "SELECT f.id, COUNT(p.id) AS unread,
+                   COUNT(p.privatereply) as privatereplies,
+                   COUNT(p.privatereplytouser) as privaterepliestouser
+              FROM (
+                        SELECT
+                            id,
+                            discussion,
+                            CASE WHEN privatereplyto <> 0 THEN 1 END privatereply,
+                            CASE WHEN privatereplyto = :privatereplyto THEN 1 END privatereplytouser
+                        FROM {forum_posts}
+                        WHERE modified >= :modified
+                   ) p
                    JOIN {forum_discussions} d       ON d.id = p.discussion
                    JOIN {forum} f                   ON f.id = d.forum
                    JOIN {course} c                  ON c.id = f.course
-                   LEFT JOIN {forum_read} r         ON (r.postid = p.id AND r.userid = ?)
-                   LEFT JOIN {forum_track_prefs} tf ON (tf.userid = ? AND tf.forumid = f.id)
-             WHERE f.course = ?
-                   AND p.modified >= ? AND r.id is NULL
+                   LEFT JOIN {forum_read} r         ON (r.postid = p.id AND r.userid = :readuserid)
+                   LEFT JOIN {forum_track_prefs} tf ON (tf.userid = :trackprefsuser AND tf.forumid = f.id)
+             WHERE f.course = :courseid
+                   AND r.id is NULL
                    $trackingsql
                    $timedsql
           GROUP BY f.id";
 
-    if ($return = $DB->get_records_sql($sql, $params)) {
-        return $return;
+    $results = [];
+    if ($records = $DB->get_records_sql($sql, $params)) {
+        // Loop through each forum instance to check for capability and count the number of unread posts.
+        foreach ($forumcms as $cm) {
+            // Check that the forum instance exists in the query results.
+            if (!isset($records[$cm->instance])) {
+                continue;
+            }
+
+            $record = $records[$cm->instance];
+            $unread = $record->unread;
+
+            // Check if the user has the capability to read private replies for this forum instance.
+            $forumcontext = context_module::instance($cm->id);
+            if (!has_capability('mod/forum:readprivatereplies', $forumcontext, $userid)) {
+                // The real unread count would be the total of unread count minus the number of unread private replies plus
+                // the total unread private replies to the user.
+                $unread = $record->unread - $record->privatereplies + $record->privaterepliestouser;
+            }
+
+            // Build and add the object to the array of results to be returned.
+            $results[$record->id] = (object)[
+                'id' => $record->id,
+                'unread' => $unread,
+            ];
+        }
     }
 
-    return array();
+    return $results;
 }
 
 /**
@@ -4645,7 +4693,8 @@ function forum_tp_count_forum_unread_posts($cm, $course, $resetreadcache = false
         return $readcache[$course->id][$forumid];
     }
 
-    if (has_capability('moodle/site:accessallgroups', context_module::instance($cm->id))) {
+    $forumcontext = context_module::instance($cm->id);
+    if (has_any_capability(['moodle/site:accessallgroups', 'mod/forum:readprivatereplies'], $forumcontext)) {
         return $readcache[$course->id][$forumid];
     }
 
@@ -4658,30 +4707,36 @@ function forum_tp_count_forum_unread_posts($cm, $course, $resetreadcache = false
     // add all groups posts
     $mygroups[-1] = -1;
 
-    list ($groups_sql, $groups_params) = $DB->get_in_or_equal($mygroups);
+    list ($groupssql, $groupsparams) = $DB->get_in_or_equal($mygroups, SQL_PARAMS_NAMED);
 
-    $now = floor(time() / 60) * 60; // DB Cache friendliness.
-    $cutoffdate = $now - ($CFG->forum_oldpostdays*24*60*60);
-    $params = array($USER->id, $forumid, $cutoffdate);
+    $now = floor(time() / MINSECS) * MINSECS; // DB Cache friendliness.
+    $cutoffdate = $now - ($CFG->forum_oldpostdays * DAYSECS);
+    $params = [
+        'readuser' => $USER->id,
+        'forum' => $forumid,
+        'cutoffdate' => $cutoffdate,
+        'privatereplyto' => $USER->id,
+    ];
 
     if (!empty($CFG->forum_enabletimedposts)) {
-        $timedsql = "AND d.timestart < ? AND (d.timeend = 0 OR d.timeend > ?)";
-        $params[] = $now;
-        $params[] = $now;
+        $timedsql = "AND d.timestart < :timestart AND (d.timeend = 0 OR d.timeend > :timeend)";
+        $params['timestart'] = $now;
+        $params['timeend'] = $now;
     } else {
         $timedsql = "";
     }
 
-    $params = array_merge($params, $groups_params);
+    $params = array_merge($params, $groupsparams);
 
     $sql = "SELECT COUNT(p.id)
               FROM {forum_posts} p
-                   JOIN {forum_discussions} d ON p.discussion = d.id
-                   LEFT JOIN {forum_read} r   ON (r.postid = p.id AND r.userid = ?)
-             WHERE d.forum = ?
-                   AND p.modified >= ? AND r.id is NULL
+              JOIN {forum_discussions} d ON p.discussion = d.id
+         LEFT JOIN {forum_read} r ON (r.postid = p.id AND r.userid = :readuser)
+             WHERE d.forum = :forum
+                   AND p.modified >= :cutoffdate AND r.id is NULL
                    $timedsql
-                   AND d.groupid $groups_sql";
+                   AND d.groupid $groupssql
+                   AND (p.privatereplyto = 0 OR p.privatereplyto = :privatereplyto)";
 
     return $DB->get_field_sql($sql, $params);
 }

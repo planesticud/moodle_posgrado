@@ -24,35 +24,35 @@
 defined('MOODLE_INTERNAL') || die();
 
 $string['autolaunch'] = '(toujours?)';
-$string['blockname'] = 'Accessibilité';
-$string['clearedoldcache'] = 'Nettoyé {$a} vieux fichier(s) dans le cache';
+$string['blockname'] = 'AccessibilitÃ©';
+$string['clearedoldcache'] = 'NettoyÃ© {$a} vieux fichier(s) dans le cache';
 $string['char'] = 'A';
 $string['dectext'] = 'Diminuer Taille du Texte';
 $string['inctext'] = 'Augmenter Taille du Texte';
-$string['invalidop'] = 'Opération invalide!';
+$string['invalidop'] = 'OpÃ©ration invalide!';
 $string['jsnocolour'] = 'Erreur lors du changement de couleurs';
-$string['jsnocolourreset'] = 'Erreur lors de la remise à zéro des couleurs';
-$string['jsnosave'] = 'Erreur lors de la sauvegarder des paramètres';
+$string['jsnocolourreset'] = 'Erreur lors de la remise Ã  zÃ©ro des couleurs';
+$string['jsnosave'] = 'Erreur lors de la sauvegarder des paramÃ¨tres';
 $string['jsnosize'] = 'Erreur lors du changement de la taille';
-$string['jsnosizereset'] = 'Erreur lors de la remise à zéro de la taille du texte';
+$string['jsnosizereset'] = 'Erreur lors de la remise Ã  zÃ©ro de la taille du texte';
 $string['launchtoolbar'] = 'Lancer ATbar';
-$string['pluginname'] = 'Accessibilité';
-$string['pluginnameplural'] = 'Accessibilité Block';
-$string['resettext'] = 'Remise à zéro de la taille du texte';
-$string['reset'] = 'Paramètres ré-initialisés';
-$string['save'] = 'Sauver les paramètres';
-$string['saved'] = 'Paramètres sauvés';
-$string['col1text'] = 'Couleurs par défaut';
-$string['col2text'] = 'Contraste élevé 1';
-$string['col3text'] = 'Contraste élevé 2';
+$string['pluginname'] = 'AccessibilitÃ©';
+$string['pluginnameplural'] = 'AccessibilitÃ© Block';
+$string['resettext'] = 'Remise Ã  zÃ©ro de la taille du texte';
+$string['reset'] = 'ParamÃ¨tres rÃ©-initialisÃ©s';
+$string['save'] = 'Sauver les paramÃ¨tres';
+$string['saved'] = 'ParamÃ¨tres sauvÃ©s';
+$string['col1text'] = 'Couleurs par dÃ©faut';
+$string['col2text'] = 'Contraste Ã©levÃ© 1';
+$string['col3text'] = 'Contraste Ã©levÃ© 2';
 $string['col4text'] = 'Contraste Haut';
 
-/*	Configuration form - please help us translate it on GitHub 
-	------------------------------------------------------------
+/* Configuration form - please help us translate it on GitHub.
+   ------------------------------------------------------------
 */
-$string['config_autosave'] = 'Auto save'; // label
-$string['config_autosave_checkbox'] = 'Save user settings automatically (button "save" will disappear)'; // checkbox label
-$string['config_autosave_help'] = 'Font size and colour schemes settings are automatically saved to the session as long as user is logged in to the system. However, session settings will be cleared once the user log off. The user can keep chosen settings throughout the sessions using the "save" button in the block. Enabling Auto-save option will remove the "save" button and automatically save settings for the user. This might lead to slightly higher impact to the system performance, which is why this option is disabled by default.'; // help block
+$string['config_autosave'] = 'Auto save'; // Label.
+$string['config_autosave_checkbox'] = 'Save user settings automatically (button "save" will disappear)'; // Checkbox label.
+$string['config_autosave_help'] = 'Font size and colour schemes settings are automatically saved to the session as long as user is logged in to the system. However, session settings will be cleared once the user log off. The user can keep chosen settings throughout the sessions using the "save" button in the block. Enabling Auto-save option will remove the "save" button and automatically save settings for the user. This might lead to slightly higher impact to the system performance, which is why this option is disabled by default.'; // Help block.
 $string['config_showATbar'] = 'ATbar';
 $string['config_showATbar_checkbox'] = 'Allow ATbar appearance within Accessibility block';
 $string['config_showATbar_help'] = 'Accessibility block also integrates ATbar from Southampton University ECS <a href="http://www.atbar.org">http://www.atbar.org</a>.';

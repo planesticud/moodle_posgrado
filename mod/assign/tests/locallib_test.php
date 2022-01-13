@@ -219,7 +219,7 @@ class mod_assign_locallib_testcase extends advanced_testcase {
         $output = $assign->get_renderer()->render($gradingtable);
 
         // Test that the filter function does not throw errors for assignments with no grade.
-        $this->assertContains(get_string('nothingtodisplay'), $output);
+        $this->assertStringContainsString(get_string('nothingtodisplay'), $output);
     }
 
 
@@ -249,16 +249,16 @@ class mod_assign_locallib_testcase extends advanced_testcase {
         // Check that the assignment is late.
         $gradingtable = new assign_grading_table($assign, 1, '', 0, true);
         $output = $assign->get_renderer()->render($gradingtable);
-        $this->assertContains(get_string('submissionstatus_', 'assign'), $output);
-        $this->assertContains(get_string('overdue', 'assign', format_time((4 * DAYSECS))), $output);
+        $this->assertStringContainsString(get_string('submissionstatus_', 'assign'), $output);
+        $this->assertStringContainsString(get_string('overdue', 'assign', format_time((4 * DAYSECS))), $output);
 
         // Grant an extension.
         $extendedtime = $time + (2 * DAYSECS);
         $assign->testable_save_user_extension($student->id, $extendedtime);
         $gradingtable = new assign_grading_table($assign, 1, '', 0, true);
         $output = $assign->get_renderer()->render($gradingtable);
-        $this->assertContains(get_string('submissionstatus_', 'assign'), $output);
-        $this->assertContains(get_string('userextensiondate', 'assign', userdate($extendedtime)), $output);
+        $this->assertStringContainsString(get_string('submissionstatus_', 'assign'), $output);
+        $this->assertStringContainsString(get_string('userextensiondate', 'assign', userdate($extendedtime)), $output);
 
         // Simulate a submission.
         $this->setUser($student);
@@ -278,8 +278,8 @@ class mod_assign_locallib_testcase extends advanced_testcase {
         $this->setUser($teacher);
         $gradingtable = new assign_grading_table($assign, 1, '', 0, true);
         $output = $assign->get_renderer()->render($gradingtable);
-        $this->assertContains(get_string('submissionstatus_submitted', 'assign'), $output);
-        $this->assertContains(get_string('userextensiondate', 'assign', userdate($extendedtime)), $output);
+        $this->assertStringContainsString(get_string('submissionstatus_submitted', 'assign'), $output);
+        $this->assertStringContainsString(get_string('userextensiondate', 'assign', userdate($extendedtime)), $output);
     }
 
     /**
@@ -308,18 +308,18 @@ class mod_assign_locallib_testcase extends advanced_testcase {
         // Check that the assignment is late.
         $gradingtable = new assign_grading_table($assign, 1, '', 0, true);
         $output = $assign->get_renderer()->render($gradingtable);
-        $this->assertContains(get_string('submissionstatus_', 'assign'), $output);
+        $this->assertStringContainsString(get_string('submissionstatus_', 'assign'), $output);
         $difftime = time() - $time;
-        $this->assertContains(get_string('overdue', 'assign', format_time((4 * DAYSECS) + $difftime)), $output);
+        $this->assertStringContainsString(get_string('overdue', 'assign', format_time((4 * DAYSECS) + $difftime)), $output);
 
         // Grant an extension that is in the past.
         $assign->testable_save_user_extension($student->id, $time - (2 * DAYSECS));
         $gradingtable = new assign_grading_table($assign, 1, '', 0, true);
         $output = $assign->get_renderer()->render($gradingtable);
-        $this->assertContains(get_string('submissionstatus_', 'assign'), $output);
-        $this->assertContains(get_string('userextensiondate', 'assign', userdate($time - (2 * DAYSECS))), $output);
+        $this->assertStringContainsString(get_string('submissionstatus_', 'assign'), $output);
+        $this->assertStringContainsString(get_string('userextensiondate', 'assign', userdate($time - (2 * DAYSECS))), $output);
         $difftime = time() - $time;
-        $this->assertContains(get_string('overdue', 'assign', format_time((2 * DAYSECS) + $difftime)), $output);
+        $this->assertStringContainsString(get_string('overdue', 'assign', format_time((2 * DAYSECS) + $difftime)), $output);
 
         // Simulate a submission.
         $this->setUser($student);
@@ -340,11 +340,11 @@ class mod_assign_locallib_testcase extends advanced_testcase {
         $this->setUser($teacher);
         $gradingtable = new assign_grading_table($assign, 1, '', 0, true);
         $output = $assign->get_renderer()->render($gradingtable);
-        $this->assertContains(get_string('submissionstatus_submitted', 'assign'), $output);
-        $this->assertContains(get_string('userextensiondate', 'assign', userdate($time - (2 * DAYSECS))), $output);
+        $this->assertStringContainsString(get_string('submissionstatus_submitted', 'assign'), $output);
+        $this->assertStringContainsString(get_string('userextensiondate', 'assign', userdate($time - (2 * DAYSECS))), $output);
 
         $difftime = $submittedtime - $time;
-        $this->assertContains(get_string('submittedlateshort', 'assign', format_time((2 * DAYSECS) + $difftime)), $output);
+        $this->assertStringContainsString(get_string('submittedlateshort', 'assign', format_time((2 * DAYSECS) + $difftime)), $output);
     }
 
     public function test_gradingtable_status_rendering() {
@@ -370,9 +370,9 @@ class mod_assign_locallib_testcase extends advanced_testcase {
         // Check that the assignment is late.
         $gradingtable = new assign_grading_table($assign, 1, '', 0, true);
         $output = $assign->get_renderer()->render($gradingtable);
-        $this->assertContains(get_string('submissionstatus_', 'assign'), $output);
+        $this->assertStringContainsString(get_string('submissionstatus_', 'assign'), $output);
         $difftime = time() - $time;
-        $this->assertContains(get_string('overdue', 'assign', format_time((4 * DAYSECS) + $difftime)), $output);
+        $this->assertStringContainsString(get_string('overdue', 'assign', format_time((4 * DAYSECS) + $difftime)), $output);
 
         // Simulate a student viewing the assignment without submitting.
         $this->setUser($student);
@@ -386,7 +386,7 @@ class mod_assign_locallib_testcase extends advanced_testcase {
         $gradingtable = new assign_grading_table($assign, 1, '', 0, true);
         $output = $assign->get_renderer()->render($gradingtable);
         $difftime = $submittedtime - $time;
-        $this->assertContains(get_string('overdue', 'assign', format_time((4 * DAYSECS) + $difftime)), $output);
+        $this->assertStringContainsString(get_string('overdue', 'assign', format_time((4 * DAYSECS) + $difftime)), $output);
 
         $document = new DOMDocument();
         @$document->loadHTML($output);
@@ -763,7 +763,7 @@ class mod_assign_locallib_testcase extends advanced_testcase {
         assign::cron();
         $event = $DB->get_record('event', $params);
 
-        $this->assertContains('Some text', $event->description);
+        $this->assertStringContainsString('Some text', $event->description);
 
     }
 
@@ -805,7 +805,7 @@ class mod_assign_locallib_testcase extends advanced_testcase {
         // Test you cannot see the submit button for an offline assignment regardless.
         $this->setUser($student);
         $output = $assign->view_student_summary($student, true);
-        $this->assertNotContains(get_string('submitassignment', 'assign'), $output, 'Can submit empty offline assignment');
+        $this->assertStringNotContainsString(get_string('submitassignment', 'assign'), $output, 'Can submit empty offline assignment');
     }
 
     public function test_cannot_submit_empty_no_submission() {
@@ -826,7 +826,7 @@ class mod_assign_locallib_testcase extends advanced_testcase {
         // Test you cannot see the submit button for an online text assignment with no submission.
         $this->setUser($student);
         $output = $assign->view_student_summary($student, true);
-        $this->assertNotContains(get_string('submitassignment', 'assign'), $output, 'Cannot submit empty onlinetext assignment');
+        $this->assertStringNotContainsString(get_string('submitassignment', 'assign'), $output, 'Cannot submit empty onlinetext assignment');
     }
 
     public function test_can_submit_with_submission() {
@@ -850,7 +850,7 @@ class mod_assign_locallib_testcase extends advanced_testcase {
         // Test you can see the submit button for an online text assignment with a submission.
         $this->setUser($student);
         $output = $assign->view_student_summary($student, true);
-        $this->assertContains(get_string('submitassignment', 'assign'), $output, 'Can submit non empty onlinetext assignment');
+        $this->assertStringContainsString(get_string('submitassignment', 'assign'), $output, 'Can submit non empty onlinetext assignment');
     }
 
     /**
@@ -1052,6 +1052,56 @@ class mod_assign_locallib_testcase extends advanced_testcase {
         $this->assertTrue($participant->submitted);
         $this->assertTrue($participant->requiregrading);
         $this->assertFalse($participant->grantedextension);
+    }
+
+    /**
+     * Tests that if a student with no submission who can no longer submit is not a participant.
+     */
+    public function test_get_participant_with_no_submission_no_capability() {
+        global $DB;
+        $this->resetAfterTest();
+        $course = self::getDataGenerator()->create_course();
+        $coursecontext = context_course::instance($course->id);
+        $assign = $this->create_instance($course);
+        $teacher = self::getDataGenerator()->create_and_enrol($course, 'teacher');
+        $student = self::getDataGenerator()->create_and_enrol($course, 'student');
+
+        // Remove the students capability to submit.
+        $role = $DB->get_field('role', 'id', ['shortname' => 'student']);
+        assign_capability('mod/assign:submit', CAP_PROHIBIT, $role, $coursecontext);
+
+        $participant = $assign->get_participant($student->id);
+
+        self::assertNull($participant);
+    }
+
+    /**
+     * Tests that if a student that has submitted but can no longer submit is a participant.
+     */
+    public function test_get_participant_with_submission_no_capability() {
+        global $DB;
+        $this->resetAfterTest();
+        $course = self::getDataGenerator()->create_course();
+        $coursecontext = context_course::instance($course->id);
+        $assign = $this->create_instance($course);
+        $teacher = self::getDataGenerator()->create_and_enrol($course, 'teacher');
+        $student = self::getDataGenerator()->create_and_enrol($course, 'student');
+
+        // Simulate a submission.
+        $this->add_submission($student, $assign);
+        $this->submit_for_grading($student, $assign);
+
+        // Remove the students capability to submit.
+        $role = $DB->get_field('role', 'id', ['shortname' => 'student']);
+        assign_capability('mod/assign:submit', CAP_PROHIBIT, $role, $coursecontext);
+
+        $participant = $assign->get_participant($student->id);
+
+        self::assertNotNull($participant);
+        self::assertEquals($student->id, $participant->id);
+        self::assertTrue($participant->submitted);
+        self::assertTrue($participant->requiregrading);
+        self::assertFalse($participant->grantedextension);
     }
 
     public function test_get_participant_with_graded_submission() {
@@ -1926,7 +1976,7 @@ class mod_assign_locallib_testcase extends advanced_testcase {
         // Check we can see the submit button.
         $this->setUser($student);
         $output = $assign->view_student_summary($student, true);
-        $this->assertContains(get_string('submitassignment', 'assign'), $output);
+        $this->assertStringContainsString(get_string('submitassignment', 'assign'), $output);
 
         $submission = $assign->get_group_submission($student->id, 0, true);
         $submission->status = ASSIGN_SUBMISSION_STATUS_SUBMITTED;
@@ -1934,18 +1984,18 @@ class mod_assign_locallib_testcase extends advanced_testcase {
 
         // Check that the student does not see "Submit" button.
         $output = $assign->view_student_summary($student, true);
-        $this->assertNotContains(get_string('submitassignment', 'assign'), $output);
+        $this->assertStringNotContainsString(get_string('submitassignment', 'assign'), $output);
 
         // Change to another user in the same group.
         $this->setUser($otherstudent);
         $output = $assign->view_student_summary($otherstudent, true);
-        $this->assertContains(get_string('submitassignment', 'assign'), $output);
+        $this->assertStringContainsString(get_string('submitassignment', 'assign'), $output);
 
         $submission = $assign->get_group_submission($otherstudent->id, 0, true);
         $submission->status = ASSIGN_SUBMISSION_STATUS_SUBMITTED;
         $assign->testable_update_submission($submission, $otherstudent->id, true, true);
         $output = $assign->view_student_summary($otherstudent, true);
-        $this->assertNotContains(get_string('submitassignment', 'assign'), $output);
+        $this->assertStringNotContainsString(get_string('submitassignment', 'assign'), $output);
     }
 
     public function test_group_submissions_submit_for_marking() {
@@ -1981,10 +2031,10 @@ class mod_assign_locallib_testcase extends advanced_testcase {
 
         // Check we can see the submit button.
         $output = $assign->view_student_summary($student, true);
-        $this->assertContains(get_string('submitassignment', 'assign'), $output);
-        $this->assertContains(get_string('timeremaining', 'assign'), $output);
+        $this->assertStringContainsString(get_string('submitassignment', 'assign'), $output);
+        $this->assertStringContainsString(get_string('timeremaining', 'assign'), $output);
         $difftime = time() - $time;
-        $this->assertContains(get_string('overdue', 'assign', format_time((2 * DAYSECS) + $difftime)), $output);
+        $this->assertStringContainsString(get_string('overdue', 'assign', format_time((2 * DAYSECS) + $difftime)), $output);
 
         $submission = $assign->get_group_submission($student->id, 0, true);
         $submission->status = ASSIGN_SUBMISSION_STATUS_SUBMITTED;
@@ -1992,23 +2042,23 @@ class mod_assign_locallib_testcase extends advanced_testcase {
 
         // Check that the student does not see "Submit" button.
         $output = $assign->view_student_summary($student, true);
-        $this->assertNotContains(get_string('submitassignment', 'assign'), $output);
+        $this->assertStringNotContainsString(get_string('submitassignment', 'assign'), $output);
 
         // Change to another user in the same group.
         $this->setUser($otherstudent);
         $output = $assign->view_student_summary($otherstudent, true);
-        $this->assertNotContains(get_string('submitassignment', 'assign'), $output);
+        $this->assertStringNotContainsString(get_string('submitassignment', 'assign'), $output);
 
         // Check that time remaining is not overdue.
-        $this->assertContains(get_string('timeremaining', 'assign'), $output);
+        $this->assertStringContainsString(get_string('timeremaining', 'assign'), $output);
         $difftime = time() - $time;
-        $this->assertContains(get_string('submittedlate', 'assign', format_time((2 * DAYSECS) + $difftime)), $output);
+        $this->assertStringContainsString(get_string('submittedlate', 'assign', format_time((2 * DAYSECS) + $difftime)), $output);
 
         $submission = $assign->get_group_submission($otherstudent->id, 0, true);
         $submission->status = ASSIGN_SUBMISSION_STATUS_SUBMITTED;
         $assign->testable_update_submission($submission, $otherstudent->id, true, true);
         $output = $assign->view_student_summary($otherstudent, true);
-        $this->assertNotContains(get_string('submitassignment', 'assign'), $output);
+        $this->assertStringNotContainsString(get_string('submitassignment', 'assign'), $output);
     }
 
     public function test_submissions_open() {
@@ -2329,6 +2379,25 @@ class mod_assign_locallib_testcase extends advanced_testcase {
         $this->setUser($student);
         $output = $assign->view_student_summary($student, true);
         $this->assertNotRegexp('/Feedback/', $output, 'Do not show feedback if the grade is hidden in the gradebook');
+
+        // Freeze the context.
+        $this->setAdminUser();
+        $context = $assign->get_context();
+        $CFG->contextlocking = true;
+        $context->set_locked(true);
+
+        // No feedback should be available because the grade is hidden.
+        $this->setUser($student);
+        $output = $assign->view_student_summary($student, true);
+        $this->assertNotRegexp('/Feedback/', $output, 'Do not show feedback if the grade is hidden in the gradebook');
+
+        // Show the feedback again - it should still be visible even in a frozen context.
+        $this->setUser($teacher);
+        $gradeitem->set_hidden(0, false);
+
+        $this->setUser($student);
+        $output = $assign->view_student_summary($student, true);
+        $this->assertRegexp('/Feedback/', $output, 'Show feedback if there is a grade');
     }
 
     public function test_show_student_summary_with_feedback() {
@@ -2824,7 +2893,7 @@ class mod_assign_locallib_testcase extends advanced_testcase {
 
         $this->setUser($student);
         $output = $assign->view_student_summary($student, true);
-        $this->assertContains('Student submission text', $output, 'Contains student submission text');
+        $this->assertStringContainsString('Student submission text', $output, 'Contains student submission text');
 
         // Check that a teacher can not edit the submission as they do not have the capability.
         $this->setUser($teacher);
@@ -2863,7 +2932,7 @@ class mod_assign_locallib_testcase extends advanced_testcase {
 
         $this->setUser($student);
         $output = $assign->view_student_summary($student, true);
-        $this->assertContains('Student submission text', $output, 'Contains student submission text');
+        $this->assertStringContainsString('Student submission text', $output, 'Contains student submission text');
 
         // Check that a teacher can edit the submission.
         $this->setUser($teacher);
@@ -2871,8 +2940,8 @@ class mod_assign_locallib_testcase extends advanced_testcase {
 
         $this->setUser($student);
         $output = $assign->view_student_summary($student, true);
-        $this->assertNotContains('Student submission text', $output, 'Contains student submission text');
-        $this->assertContains('Teacher edited submission text', $output, 'Contains teacher edited submission text');
+        $this->assertStringNotContainsString('Student submission text', $output, 'Contains student submission text');
+        $this->assertStringContainsString('Teacher edited submission text', $output, 'Contains teacher edited submission text');
 
         // Check that the teacher can submit the students work.
         $this->setUser($teacher);
@@ -2885,13 +2954,13 @@ class mod_assign_locallib_testcase extends advanced_testcase {
 
         // Check that the submission text was saved.
         $output = $assign->view_student_summary($student, true);
-        $this->assertContains('Teacher edited submission text', $output, 'Contains student submission text');
+        $this->assertStringContainsString('Teacher edited submission text', $output, 'Contains student submission text');
 
         // Check that the student can submit their work.
         $this->submit_for_grading($student, $assign, []);
 
         $output = $assign->view_student_summary($student, true);
-        $this->assertNotContains(get_string('addsubmission', 'assign'), $output);
+        $this->assertStringNotContainsString(get_string('addsubmission', 'assign'), $output);
 
         // An editing teacher without the extra role should still be able to revert to draft.
         $this->setUser($otherteacher);
@@ -2942,9 +3011,9 @@ class mod_assign_locallib_testcase extends advanced_testcase {
 
         $this->setUser($student);
         $output = $assign->view_student_summary($student, true);
-        $this->assertNotContains($output, get_string('editsubmission', 'assign'),
+        $this->assertStringNotContainsString($output, get_string('editsubmission', 'assign'),
                                  'Should not be able to edit after cutoff date.');
-        $this->assertNotContains($output, get_string('submitassignment', 'assign'),
+        $this->assertStringNotContainsString($output, get_string('submitassignment', 'assign'),
                                  'Should not be able to submit after cutoff date.');
     }
 
@@ -3649,7 +3718,7 @@ Anchor link 2:<a title=\"bananas\" href=\"../logo-240x60.gif\">Link text</a>
             ];
 
         $result = $assign->testable_process_save_quick_grades($data);
-        $this->assertContains(get_string('quickgradingchangessaved', 'assign'), $result);
+        $this->assertStringContainsString(get_string('quickgradingchangessaved', 'assign'), $result);
         $grade = $assign->get_user_grade($student->id, false);
         $this->assertEquals(60.0, $grade->grade);
 
@@ -3661,7 +3730,7 @@ Anchor link 2:<a title=\"bananas\" href=\"../logo-240x60.gif\">Link text</a>
             'quickgrade_' . $student->id => '50.0'
         );
         $result = $assign->testable_process_save_quick_grades($data);
-        $this->assertContains(get_string('errorrecordmodified', 'assign'), $result);
+        $this->assertStringContainsString(get_string('errorrecordmodified', 'assign'), $result);
         $grade = $assign->get_user_grade($student->id, false);
         $this->assertFalse($grade);
 
@@ -3673,7 +3742,7 @@ Anchor link 2:<a title=\"bananas\" href=\"../logo-240x60.gif\">Link text</a>
             'quickgrade_' . $student->id => '40.0'
         );
         $result = $assign->testable_process_save_quick_grades($data);
-        $this->assertContains(get_string('quickgradingchangessaved', 'assign'), $result);
+        $this->assertStringContainsString(get_string('quickgradingchangessaved', 'assign'), $result);
         $grade = $assign->get_user_grade($student->id, false);
         $this->assertEquals(40.0, $grade->grade);
 
@@ -3687,13 +3756,13 @@ Anchor link 2:<a title=\"bananas\" href=\"../logo-240x60.gif\">Link text</a>
             'quickgrade_' . $student->id => '30.0'
         );
         $result = $assign->testable_process_save_quick_grades($data);
-        $this->assertContains(get_string('quickgradingchangessaved', 'assign'), $result);
+        $this->assertStringContainsString(get_string('quickgradingchangessaved', 'assign'), $result);
         $grade = $assign->get_user_grade($student->id, false);
         $this->assertEquals(30.0, $grade->grade);
 
         // Now update using 'old' data. Should fail.
         $result = $assign->testable_process_save_quick_grades($pastdata);
-        $this->assertContains(get_string('errorrecordmodified', 'assign'), $result);
+        $this->assertStringContainsString(get_string('errorrecordmodified', 'assign'), $result);
         $grade = $assign->get_user_grade($student->id, false);
         $this->assertEquals(30.0, $grade->grade);
     }
@@ -3822,71 +3891,6 @@ Anchor link 2:<a title=\"bananas\" href=\"../logo-240x60.gif\">Link text</a>
 
         $completiondata = $completion->get_data($cm, false, $otherstudent->id);
         $this->assertEquals(1, $completiondata->completionstate);
-    }
-
-    public function get_assignments_with_rescaled_null_grades_provider() {
-        return [
-            'Negative less than one is errant' => [
-                'grade' => -0.64,
-                'count' => 1,
-            ],
-            'Negative more than one is errant' => [
-                'grade' => -30.18,
-                'count' => 1,
-            ],
-            'Negative one exactly is not errant' => [
-                'grade' => ASSIGN_GRADE_NOT_SET,
-                'count' => 0,
-            ],
-            'Positive grade is not errant' => [
-                'grade' => 1,
-                'count' => 0,
-            ],
-            'Large grade is not errant' => [
-                'grade' => 100,
-                'count' => 0,
-            ],
-            'Zero grade is not errant' => [
-                'grade' => 0,
-                'count' => 0,
-            ],
-        ];
-    }
-
-    /**
-     * Test determining if the assignment as any null grades that were rescaled.
-     * @dataProvider get_assignments_with_rescaled_null_grades_provider
-     */
-    public function test_get_assignments_with_rescaled_null_grades($grade, $count) {
-        global $DB;
-
-        $this->resetAfterTest();
-
-        $course = $this->getDataGenerator()->create_course();
-        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'teacher');
-        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
-
-        $this->setUser($teacher);
-        $assign = $this->create_instance($course, [
-                'grade' => 100,
-            ]);
-
-        // Try getting a student's grade. This will give a grade of -1.
-        // Then we can override it with a bad negative grade.
-        $assign->get_user_grade($student->id, true);
-
-        // Set the grade to something errant.
-        $DB->set_field(
-            'assign_grades',
-            'grade',
-            $grade,
-            [
-                'userid' => $student->id,
-                'assignment' => $assign->get_instance()->id,
-            ]
-        );
-
-        $this->assertCount($count, get_assignments_with_rescaled_null_grades());
     }
 
     /**
@@ -4027,15 +4031,15 @@ Anchor link 2:<a title=\"bananas\" href=\"../logo-240x60.gif\">Link text</a>
         // Check that submissionslocked message 'This assignment is not accepting submissions' does not appear for student.
         $gradingtable = new assign_grading_table($assign, 1, '', 0, true);
         $output = $assign->get_renderer()->render($gradingtable);
-        $this->assertContains(get_string('submissionstatus_', 'assign'), $output);
+        $this->assertStringContainsString(get_string('submissionstatus_', 'assign'), $output);
 
         $assignsubmissionstatus = $assign->get_assign_submission_status_renderable($student, true);
         $output2 = $assign->get_renderer()->render($assignsubmissionstatus);
 
         // Check that submissionslocked 'This assignment is not accepting submissions' message does not appear for student.
-        $this->assertNotContains(get_string('submissionslocked', 'assign'), $output2);
+        $this->assertStringNotContainsString(get_string('submissionslocked', 'assign'), $output2);
         // Check that submissionstatus_marked 'Graded' message does appear for student.
-        $this->assertContains(get_string('submissionstatus_marked', 'assign'), $output2);
+        $this->assertStringContainsString(get_string('submissionstatus_marked', 'assign'), $output2);
     }
 
     /**
@@ -4253,17 +4257,67 @@ Anchor link 2:<a title=\"bananas\" href=\"../logo-240x60.gif\">Link text</a>
         $this->setUser($student2);
         $summary = $assign->get_assign_grading_summary_renderable($group1->id);
         $output1 .= $assign->get_renderer()->render($summary);
-        $this->assertContains('Tuesday, 28 May 2019, 7:31 AM', $output1, '', true);
+        $this->assertStringContainsStringIgnoringCase('Tuesday, 28 May 2019, 7:31 AM', $output1);
 
         $output2 = '';
         // Teacher should be able to see all group override duedate.
         $this->setUser($teacher);
         $summary = $assign->get_assign_grading_summary_renderable($group1->id);
         $output2 .= $assign->get_renderer()->render($summary);
-        $this->assertContains('Friday, 20 September 2019, 10:37 PM', $output2, '', true);
+        $this->assertStringContainsStringIgnoringCase('Friday, 20 September 2019, 10:37 PM', $output2);
         $summary = $assign->get_assign_grading_summary_renderable($group2->id);
         $output3 = '';
         $output3 .= $assign->get_renderer()->render($summary);
-        $this->assertContains('Friday, 7 June 2019, 5:37 PM', $output3, '', true);
+        $this->assertStringContainsStringIgnoringCase('Friday, 7 June 2019, 5:37 PM', $output3);
+    }
+
+    /**
+     * Test that cron task uses task API to get its last run time.
+     */
+    public function test_cron_use_task_api_to_get_lastruntime() {
+        global $DB;
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+
+        // Create an assignment which allows submissions from 3 days ago.
+        $assign1 = $this->create_instance($course, [
+            'duedate' => time() + DAYSECS,
+            'alwaysshowdescription' => 0,
+            'allowsubmissionsfromdate' => time() - 3 * DAYSECS,
+            'intro' => 'This one should not be re-created',
+        ]);
+
+        // Create an assignment which allows submissions from 1 day ago.
+        $assign2 = $this->create_instance($course, [
+            'duedate' => time() + DAYSECS,
+            'alwaysshowdescription' => 0,
+            'allowsubmissionsfromdate' => time() - DAYSECS,
+            'intro' => 'This one should be re-created',
+        ]);
+
+        // Set last run time 2 days ago.
+        $DB->set_field('task_scheduled', 'lastruntime', time() - 2 * DAYSECS, ['classname' => '\mod_assign\task\cron_task']);
+
+        // Remove events to make sure cron will update calendar and re-create one of them.
+        $params = array('modulename' => 'assign', 'instance' => $assign1->get_instance()->id);
+        $DB->delete_records('event', $params);
+        $params = array('modulename' => 'assign', 'instance' => $assign2->get_instance()->id);
+        $DB->delete_records('event', $params);
+
+        // Run cron.
+        assign::cron();
+
+        // Assert that calendar hasn't been updated for the first assignment as it's supposed to be
+        // updated as part of previous cron runs (allowsubmissionsfromdate is less than lastruntime).
+        $params = array('modulename' => 'assign', 'instance' => $assign1->get_instance()->id);
+        $event1 = $DB->get_record('event', $params);
+        $this->assertEmpty($event1);
+
+        // Assert that calendar has been updated for the second assignment
+        // because its allowsubmissionsfromdate is greater than lastruntime.
+        $params = array('modulename' => 'assign', 'instance' => $assign2->get_instance()->id);
+        $event2 = $DB->get_record('event', $params);
+        $this->assertNotEmpty($event2);
+        $this->assertSame('This one should be re-created', $event2->description);
     }
 }

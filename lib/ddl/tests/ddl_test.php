@@ -31,7 +31,7 @@ class core_ddl_testcase extends database_driver_testcase {
     /** @var array table name => array of stdClass test records loaded into that table. Created in setUp. */
     private $records = array();
 
-    protected function setUp() {
+    protected function setUp(): void {
         parent::setUp();
         $dbman = $this->tdb->get_manager(); // Loads DDL libs.
 
@@ -574,7 +574,7 @@ class core_ddl_testcase extends database_driver_testcase {
             $id = $DB->insert_record('test_innodb', $data);
             $expected = (array)$data;
             $expected['id'] = (string)$id;
-            $this->assertEquals($expected, (array)$DB->get_record('test_innodb', array('id' => $id)), '', 0, 10, true);
+            $this->assertEqualsCanonicalizing($expected, (array)$DB->get_record('test_innodb', array('id' => $id)));
         } catch (dml_exception $e) {
             // Give some nice error message when known problematic MySQL with InnoDB detected.
             if ($DB->get_dbfamily() === 'mysql') {
@@ -607,7 +607,7 @@ class core_ddl_testcase extends database_driver_testcase {
             $id = $DB->insert_record('test_innodb', $data);
             $expected = (array)$data;
             $expected['id'] = (string)$id;
-            $this->assertEquals($expected, (array)$DB->get_record('test_innodb', array('id' => $id)), '', 0, 10, true);
+            $this->assertEqualsCanonicalizing($expected, (array)$DB->get_record('test_innodb', array('id' => $id)));
         }
 
         $dbman->drop_table($table);
@@ -628,7 +628,7 @@ class core_ddl_testcase extends database_driver_testcase {
         $id = $DB->insert_record('test_innodb', $data);
         $expected = (array)$data;
         $expected['id'] = (string)$id;
-        $this->assertEquals($expected, (array)$DB->get_record('test_innodb', array('id' => $id)), '', 0, 10, true);
+        $this->assertEqualsCanonicalizing($expected, (array)$DB->get_record('test_innodb', array('id' => $id)));
 
         $dbman->drop_table($table);
     }
@@ -2455,6 +2455,7 @@ class core_ddl_testcase extends database_driver_testcase {
         $table->add_field('extracolumn', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
         $table->add_field('courseid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
         $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
+        $table->add_key('extraindex', XMLDB_KEY_UNIQUE, array('extracolumn'));
         $table->setComment("This is a test table, you can drop it safely.");
         $dbmanager->create_table($table);
 
@@ -2471,6 +2472,9 @@ class core_ddl_testcase extends database_driver_testcase {
         // Add another key to the schema that won't be present in the database and gets reported as missing.
         $table->add_key('missingkey', XMLDB_KEY_FOREIGN, array('courseid'), 'course', array('id'));
 
+        // Remove the key from the schema which will still be present in the database and reported as extra.
+        $table->deleteKey('extraindex');
+
         $schema = new xmldb_structure('testschema');
         $schema->addTable($table);
 
@@ -2478,16 +2482,18 @@ class core_ddl_testcase extends database_driver_testcase {
         // 1. Changed columns.
         // 2. Missing columns.
         // 3. Missing indexes.
-        // 4. Extra columns.
+        // 4. Unexpected index.
+        // 5. Extra columns.
         $errors = $dbmanager->check_database_schema($schema)['test_check_db_schema'];
         // Preprocess $errors to get rid of the non compatible (SQL-dialect dependent) parts.
         array_walk($errors, function(&$error) {
             $error = trim(strtok($error, PHP_EOL));
         });
-        $this->assertCount(4, $errors);
+        $this->assertCount(5, $errors);
         $this->assertContains("column 'courseid' has incorrect type 'I', expected 'N'", $errors);
         $this->assertContains("column 'missingcolumn' is missing", $errors);
         $this->assertContains("Missing index 'missingkey' (not unique (courseid)).", $errors);
+        $this->assertContains("Unexpected index '{$CFG->prefix}testchecdbsche_ext_uix'.", $errors);
         $this->assertContains("column 'extracolumn' is not expected (I)", $errors);
     }
 }
